@@ -14,10 +14,16 @@ class ResearchResponse(BaseModel):
     summary: str
     sources: list[str]
     tools_used: list[str]
-    
 
-llm = ChatAnthropic(model="claude-3-5-sonnet-20241022")
+# ✅ Use OpenAI model instead of Anthropic
+llm = ChatOpenAI(
+    model="gpt-4o",           # Or "gpt-4o-mini" for cheaper/faster runs
+    temperature=0,           # Keep it deterministic for structured output
+)
+
+# Parser for extracting structured response
 parser = PydanticOutputParser(pydantic_object=ResearchResponse)
+
 
 prompt = ChatPromptTemplate.from_messages(
     [
