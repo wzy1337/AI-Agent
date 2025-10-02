@@ -1,7 +1,12 @@
 from langchain_community.tools import WikipediaQueryRun, DuckDuckGoSearchRun
-from langchain_community.utilities import WikipediaAPIWrapper
+from langchain_community.utilities import WikipediaAPIWrapper, SerpAPIWrapper
 from langchain.tools import Tool
 from datetime import datetime
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv(dotenv_path="sample.env")
 
 def save_to_txt(data: str, filename: str = "research_output.txt"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -27,4 +32,20 @@ search_tool = Tool(
 
 api_wrapper = WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=100)
 wiki_tool = WikipediaQueryRun(api_wrapper=api_wrapper)
+
+# SerpAPI tool for Google search results
+# Load environment variables and create SerpAPI wrapper
+load_dotenv(dotenv_path="sample.env")
+serpapi_api_key = os.getenv("SERPAPI_API_KEY")
+
+if serpapi_api_key:
+    serpapi_wrapper = SerpAPIWrapper(serpapi_api_key=serpapi_api_key)
+    serpapi_tool = Tool(
+        name="google_search",
+        func=serpapi_wrapper.run,
+        description="Search Google for current information and news using SerpAPI. Provides more structured results than DuckDuckGo.",
+    )
+else:
+    print("Warning: SERPAPI_API_KEY not found. SerpAPI tool will not be available.")
+    serpapi_tool = None
 
