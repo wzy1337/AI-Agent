@@ -5,7 +5,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
-from tools import search_tool, wiki_tool, save_tool, serpapi_tool
+from tools import search_tool, wiki_tool, save_tool, tavily_tool
 
 load_dotenv(dotenv_path="sample.env")
 
@@ -107,9 +107,11 @@ prompt = ChatPromptTemplate.from_messages(
 # -----------------------------
 # Tools Setup
 # -----------------------------
-tools = [search_tool, wiki_tool, save_tool]
-if serpapi_tool is not None:
-    tools.append(serpapi_tool)
+tools = [tavily_tool, save_tool]
+
+# Add fallback search if available
+if search_tool is not None:
+    tools.append(search_tool)
 
 # -----------------------------
 # Agent Setup
