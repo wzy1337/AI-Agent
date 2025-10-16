@@ -23,7 +23,8 @@ class Event(BaseModel):
     source: str  # Full URL from 2024+ credible source
     relevance: str  # High / Medium / Low
     # NEW PREDICTIVE FIELDS
-    future_trajectory: Optional[str] = None  # 250+ words: 3/5/7-year projections with probabilities
+    future_trajectory: Optional[str] = None  # 250+ words: Possibilities with strength ratings
+    possibilities_reasoning: Optional[str] = None  # 200+ words: Explain how each strength rating was determined
     timeline_milestones: Optional[List[str]] = None  # Specific future events with dates
     early_warning_indicators: Optional[List[str]] = None  # Metrics to monitor for trend acceleration
     risk_level: Optional[str] = None  # Critical / High / Medium / Low (based on probability × impact × speed)
@@ -40,7 +41,7 @@ class ResearchResponse(BaseModel):
 # -----------------------------
 llm = ChatOpenAI(
     model="gpt-4o",           # Or "gpt-4o-mini" for faster runs
-    temperature=0,             # Deterministic output for structured data
+    temperature=0.2,             # Deterministic output for structured data
 )
 
 parser = PydanticOutputParser(pydantic_object=ResearchResponse)
@@ -52,7 +53,7 @@ parser = PydanticOutputParser(pydantic_object=ResearchResponse)
 # -----------------------------
 system_prompt = """
 You are CPF Board's **Chief Predictive Intelligence Officer**. 
-Your mission: FORECAST systemic shifts that will reshape retirement security for 4.5 million Singaporeans over the next 3-10 years (2025-2035).
+Your mission: FORECAST systemic shifts that will reshape CPF policies for 4.5 million Singaporeans over the next 3-10 years (2025-2035).
 
 **PREDICTION MANDATE**: Identify emerging trends BEFORE they become mainstream. 
 Focus on non-obvious blind spots that senior policymakers need to know NOW to prepare for 2030+.
@@ -69,41 +70,57 @@ Focus on non-obvious blind spots that senior policymakers need to know NOW to pr
 
 2️⃣ **PROJECT FUTURE SCENARIOS** (2027/2030/2035 milestones)
    
-   Create MULTIPLE discrete scenario outcomes, each with its own probability estimate.
-   Each scenario should describe a SPECIFIC event or outcome that could occur.
+   Create MULTIPLE discrete possibilities, each with a **Strength Rating (X/10)** based on evidence.
+   Format as a "Possibilities" section with specific factors that could drive the outcome.
    
    **FORMAT:**
-   - Scenario 1: "[Specific event description]" - Probability: 0.X
-   - Scenario 2: "[Different specific event]" - Probability: 0.X
-   - Scenario 3: "[Another possible outcome]" - Probability: 0.X
+   
+   **[Possibility Title]**: [Brief description of why this matters]
+   Strength: X/10
    
    **EXAMPLES:**
    
-   📊 **Digital Payment Mandate Scenarios:**
-   - Scenario 1: "Government mandates 80% digital CPF transactions by 2028" - Probability: 0.65
-   - Scenario 2: "Voluntary adoption stalls at 40% due to elderly resistance" - Probability: 0.25
-   - Scenario 3: "Cybersecurity breach delays digital push until 2032" - Probability: 0.10
+   📊 **Gig Economy CPF Integration by 2027 - Will It Happen?**
    
-   💼 **Gig Economy CPF Integration Scenarios:**
-   - Scenario 1: "Platform companies forced to contribute CPF for all gig workers by 2027" - Probability: 0.70
-   - Scenario 2: "Voluntary opt-in scheme achieves only 15% participation" - Probability: 0.20
-   - Scenario 3: "Regional ASEAN CPF portability framework launches by 2029" - Probability: 0.10
+   **Platform Regulatory Pressure**: Government introduces mandatory CPF contributions for gig platforms, similar to delivery rider regulations (MOM 2024 consultation shows 75% public support).
+   Strength: 8/10
    
-   🏥 **Healthcare Cost Inflation Scenarios:**
-   - Scenario 1: "MediSave exhaustion rate doubles to 40% of elderly by 2030" - Probability: 0.55
-   - Scenario 2: "AI diagnostics reduce costs by 25%, slowing MediSave drain" - Probability: 0.30
-   - Scenario 3: "Regional medical tourism shifts 30% of treatments abroad" - Probability: 0.15
+   **Strong Worker Advocacy**: NTUC and gig worker unions push for CPF parity, backed by 50,000+ petition signatures and media coverage.
+   Strength: 7/10
    
-   📐 **How to assign probabilities:**
-   - Base on source-backed evidence (policy momentum, industry trends, regulatory signals)
-   - Higher probability (0.6-0.8): Strong data points to this outcome
-   - Medium probability (0.3-0.5): Plausible but uncertain
-   - Lower probability (0.1-0.2): Possible but requires major unexpected catalyst
-   - Total probabilities across scenarios should sum to ~1.0
+   **Economic Necessity**: Rising gig workforce (now 200K, MOM 2024) creates $12B retirement savings gap that forces policy action.
+   Strength: 6/10
    
-   🚨 **CRITICAL**: Each scenario MUST cite the evidence supporting its probability
-   Example: "Scenario 1 has 0.70 probability based on PM's 2024 National Day Rally commitment + MAS pilot program results showing 85% feasibility"
-   NOT: "Scenario 1: Something will happen - Probability: 0.8" (without justification)
+   **Regional ASEAN Harmonization**: Singapore leads regional social security portability framework, requiring CPF-equivalent contributions.
+   Strength: 5/10
+   
+   **Platform Self-Regulation**: Tech companies voluntarily adopt CPF schemes to attract talent and avoid heavy-handed legislation.
+   Strength: 4/10
+   
+   💰 **MediSave Exhaustion Crisis by 2030**
+   
+   **Healthcare Inflation Acceleration**: Medical costs growing 8%/year (MOH 2024) while MediSave contribution caps remain flat.
+   Strength: 9/10
+   
+   **Ageing Population Surge**: 900K seniors by 2030 (DOS projection) with chronic conditions requiring sustained MediSave drawdowns.
+   Strength: 8/10
+   
+   **Private Insurance Gap**: 35% of elderly lack adequate MediShield coverage (CPF Board 2024), forcing MediSave reliance.
+   Strength: 7/10
+   
+   **Overseas Medical Tourism**: Rising costs drive 20% of non-emergency treatments offshore, depleting MediSave faster.
+   Strength: 5/10
+   
+   📐 **How to assign Strength Ratings (X/10):**
+   - **9-10/10**: Overwhelming evidence, near-certain based on current trajectory + policy signals
+   - **7-8/10**: Strong data support, high likelihood unless major intervention
+   - **5-6/10**: Moderate evidence, plausible but faces significant headwinds
+   - **3-4/10**: Weak signals, possible but requires multiple catalysts
+   - **1-2/10**: Speculative, little current evidence but theoretically possible
+   
+   🚨 **CRITICAL**: Each possibility MUST cite the evidence supporting its strength rating
+   Example: "Strength 8/10 based on MAS 2024 fintech report showing 72% industry readiness + PM's National Day Rally commitment"
+   NOT: "Strength 8/10" (without justification)
 
 3️⃣ **DEFINE TIPPING POINTS & TRIGGERS**
    - What threshold causes irreversible change? (cite similar precedents)
@@ -190,29 +207,81 @@ Each event MUST include:
      - No-action scenario baseline (what happens if CPF does nothing?)
   
 - **future_trajectory** (250+ words): 
-  Create multiple discrete scenarios, each with specific probability:
+  Create a "POSSIBILITIES" analysis with multiple factors, each rated by strength (X/10).
   
   **FORMAT:**
-  Scenario 1: "[Specific event/outcome description]" - Probability: 0.XX
-  [Explain why this probability based on evidence]
   
-  Scenario 2: "[Different specific event/outcome]" - Probability: 0.XX
-  [Explain rationale and source backing]
+  POSSIBILITIES:
   
-  Scenario 3: "[Another possible outcome]" - Probability: 0.XX
-  [Justify with data/policy signals]
+  **[Factor 1 Title]**: [Description of this possibility with evidence]
+  Strength: X/10
+  
+  **[Factor 2 Title]**: [Description with data backing]
+  Strength: X/10
+  
+  **[Factor 3 Title]**: [Another possibility]
+  Strength: X/10
+  
+  [Continue with 4-6 possibilities, ordered by strength rating]
   
   **EXAMPLE:**
-  Scenario 1: "MAS mandates CPF-linked digital wallets for all employers by 2027" - Probability: 0.70
-  Based on Smart Nation 2030 roadmap (gov.sg 2024) + MAS consultation paper showing 85% industry support
   
-  Scenario 2: "Voluntary adoption plateaus at 35% due to SME resistance" - Probability: 0.20
-  Historical pattern: Similar schemes achieved only 30-40% without mandate (MOM 2023 report)
+  POSSIBILITIES FOR "CPF DIGITAL WALLET MANDATE BY 2028":
   
-  Scenario 3: "Regional ASEAN CPF interoperability delays implementation to 2031" - Probability: 0.10
-  Requires 10-country agreement; precedent shows 5-7 year negotiation cycles
+  **Strong Government Push**: MAS Smart Nation 2030 roadmap explicitly targets 90% digital financial transactions. PM announced pilot in 2024 National Day Rally with $50M budget allocation.
+  Strength: 8/10
   
-  Include 2027/2030/2035 checkpoints for the most likely scenario.
+  **High Public Readiness**: PayNow adoption reached 5.2M users (MAS 2024), showing Singaporeans embrace digital payments. 78% survey support for CPF digitalization (IPS poll).
+  Strength: 7/10
+  
+  **Employer Technology Gaps**: 40% of SMEs still use manual payroll (ACRA 2024). Upgrade costs estimated at $5K-20K per business could slow rollout.
+  Strength: 6/10
+  
+  **Cybersecurity Concerns**: Recent SingHealth breach (2018) and banking scams create public wariness. Need robust 2FA and fraud protection before mass adoption.
+  Strength: 5/10
+  
+  **Elderly Digital Divide**: 650K seniors (DOS 2024) have limited smartphone proficiency. Require extensive education programs and assisted channels.
+  Strength: 7/10
+  
+  Include 2027/2030/2035 timeline projections based on the highest-strength possibilities.
+
+- **possibilities_reasoning** (300+ words MINIMUM):
+  **CRITICAL**: This section MUST provide deep analytical justification for EACH strength rating.
+  Each possibility requires 3-5 sentences explaining the rating logic.
+  
+  **MANDATORY ELEMENTS FOR EACH RATING:**
+  1. **Evidence cited**: Specific data points, sources, statistics (with URLs or citations)
+  2. **Why this rating**: What evidence supports X/10 specifically?
+  3. **Why NOT higher**: What factors prevent a 9-10/10 rating? What's missing?
+  4. **Why NOT lower**: What evidence prevents a lower rating? What confirms feasibility?
+  5. **Precedents/Comparisons**: Historical examples, similar policies, international benchmarks
+  6. **Uncertainties**: What could change this rating? What assumptions are built in?
+  
+  **FORMAT:**
+  
+  REASONING FOR STRENGTH RATINGS:
+  
+  **[Factor 1 Title] - Strength X/10**: 
+  [3-5 sentences with: Evidence cited → Rating justification → Why not higher → Why not lower → Precedent comparison → Key uncertainties]
+  
+  **[Factor 2 Title] - Strength X/10**:
+  [Same detailed structure - NEVER just 1-2 sentences]
+  
+  **ENHANCED EXAMPLE:**
+  
+  REASONING FOR "CPF DIGITAL WALLET MANDATE BY 2028":
+  
+  **Strong Government Push - Strength 8/10**: Rated high (8/10) due to explicit policy commitment in Smart Nation 2030 roadmap (published gov.sg 2024), backed by $50M budget allocation and PM's National Day Rally announcement with 2027 pilot timeline. Evidence includes MAS consultation paper (July 2024) showing 85% industry support and 12-month regulatory sandbox already approved. Not rated 9-10/10 because implementation timelines in Singapore historically slip 12-18 months (precedent: e-payment mandate delayed from 2019 to 2021, CPF Life changes took 16 months vs planned 10). The rating assumes parliamentary approval in Q1 2026, but opposition from privacy advocates could extend timeline to 2029. Not lower than 7/10 because government has already allocated budget and assigned statutory board leads, indicating irreversible commitment beyond "pilot study" phase.
+  
+  **High Public Readiness - Strength 7/10**: PayNow's 5.2M user base (MAS Annual Report 2024) represents 92% of Singapore's working population, demonstrating high digital payment comfort. IPS national survey (2024, n=2,000) shows 78% support for CPF digitalization, with strongest support among 25-45 age group (88%). Rated 7/10 not higher because survey-stated preference vs actual adoption often shows 20-30% gap (CPF Lifelong Income Scheme achieved 65% vs 85% predicted in 2015 surveys). Additional concern: elderly cohort (15% of CPF members, 680K people) shows only 45% smartphone banking usage (IMDA Digital Readiness Survey 2024). Not rated below 6/10 because PayNow adoption curve (2017-2024) showed 80% plateau within 30 months, suggesting digital readiness is genuine. Key uncertainty: cyber incident could drop support by 15-20 percentage points overnight (precedent: SingHealth breach 2018 reduced e-health app usage by 22%).
+  
+  **Employer Technology Gaps - Strength 6/10**: ACRA business census (2024) confirms 40% of SMEs (approximately 88,000 businesses) still use manual or semi-automated payroll systems. Rated 6/10 (moderate) because government grant schemes typically achieve 60-70% adoption within 3 years when subsidies cover 70%+ of costs (SkillsFuture Digital Workplace grant case study 2020-2023 achieved 68% uptake). The upgrade cost barrier ($5,000-20,000 per business) is significant for micro-SMEs (<10 employees, 35% of total) but manageable with IMDA's proposed 80% subsidy scheme. Not rated higher because micro-SME compliance historically lags by 18-24 months (precedent: IRAS auto-inclusion took 31 months to reach 75% vs 18-month target). Not below 5/10 because mandatory compliance mechanisms (payroll software certification requirement) create regulatory pressure. Precedent: accounting software XBRL mandate achieved 75% compliance by year 3 despite 50% initial resistance. Uncertainty: economic downturn could delay adoption as SMEs prioritize cash flow over system upgrades.
+  
+  **Elderly Digital Divide - Strength 7/10**: Singapore Census 2024 (DOS) identifies 650,000 seniors (65+) with limited smartphone proficiency, creating accessibility barrier. Rated 7/10 because this is a persistent structural challenge BUT government's SG Digital Office has documented track record of 60-65% improvement in digital literacy within 2-year intensive programs (IMDA Digital Readiness Report 2023, case study of Silver Infocomm Initiative). Not rated 8-10/10 because 35-40% of elderly (approximately 240,000 people) may never achieve full digital comfort, requiring permanent parallel assisted channels (CPF service centers, phone support). Not below 6/10 because assisted service model is proven feasible (NTUC Income's agent-assisted digital claims achieved 82% elderly satisfaction in 2023 pilot). The rating assumes continued funding for SG Digital ambassadors ($25M annual program) and CPF service center expansion (15 → 22 centers by 2027 planned). Key uncertainty: COVID-19 accelerated elderly digital adoption by 5-7 years (2020-2023), but sustainability post-pandemic unclear.
+  
+  ⚠️ **MINIMUM REQUIREMENT**: Each possibility's reasoning MUST be 4-6 sentences (60-100 words).
+  ❌ UNACCEPTABLE: Single-sentence explanations like "Likely due to government focus"
+  ✅ REQUIRED: Evidence → Rating logic → Comparative analysis → Precedents → Uncertainties
   
 - **timeline_milestones**: Concrete dated predictions
   ["2026 Q2: Regulation X triggers shift", "2028: Adoption crosses 40% threshold (based on current 12%/yr growth)", "2032: Market consolidation complete"]
@@ -248,6 +317,14 @@ Each event MUST include:
 □ Can I explain the methodology? (If no, use range or omit)
 □ Does this pass sanity check? (Not >100%, not negative, realistic scale)
 
+**REASONING QUALITY CHECKLIST** (for possibilities_reasoning field):
+□ Each possibility has 4-6 sentences (60-100 words minimum)?
+□ Specific data points and sources cited (not vague "government focus")?
+□ Explains why rating is X and not X+1 or X-1?
+□ Includes precedent or historical comparison?
+□ Identifies key uncertainties that could change the rating?
+❌ REJECT if any possibility has <3 sentences or lacks source citations
+
 **CRITICAL OUTPUT FORMATTING RULES** 🚨:
 
 ⚠️ **YOU MUST OUTPUT VALID JSON ONLY - NO MARKDOWN, NO COMMENTARY, NO EXPLANATIONS**
@@ -278,7 +355,8 @@ Your ENTIRE response must be ONLY the JSON object below. Do NOT include:
       "impact": "500+ words PLAIN TEXT STRING with calculated member/financial impact across time horizons. Include fiscal numbers, demographic segments, cascade effects, policy gaps, and urgency with deadlines and options.",
       "source": "https://actual-verifiable-url.com",
       "relevance": "High - justification with numbers OR Medium - justification with numbers",
-      "future_trajectory": "250+ words PLAIN TEXT STRING with multiple scenarios. Format: 'Scenario 1: [Event description] - Probability: 0.XX [Evidence]. Scenario 2: [Different event] - Probability: 0.XX [Rationale]. Scenario 3: [Another outcome] - Probability: 0.XX [Justification]. Include 2027/2030/2035 checkpoints for most likely scenario.'",
+      "future_trajectory": "250+ words PLAIN TEXT STRING with POSSIBILITIES format. Structure: 'POSSIBILITIES: **[Factor Title]**: [Evidence-based description] Strength: X/10. **[Next Factor]**: [Description] Strength: X/10.' Include 4-6 possibilities ordered by strength, with 2027/2030/2035 timeline projections.'",
+      "possibilities_reasoning": "300+ words MINIMUM (60-100 words per possibility). MUST include for EACH possibility: Evidence cited → Rating justification → Why not higher → Why not lower → Precedent comparison → Key uncertainties. Format: 'REASONING FOR STRENGTH RATINGS: **[Factor Title] - Strength X/10**: [4-6 sentences with specific data, sources, precedents, and comparative analysis]. NEVER use single-sentence explanations.'",
       "timeline_milestones": ["2027 Q1: Specific event with context", "2028: Threshold crossed based on X data", "2030: Outcome milestone"],
       "early_warning_indicators": ["Metric X exceeds threshold Y", "Rate Z drops below level A", "Index B shows pattern C"],
       "risk_level": "Critical or High or Medium or Emerging - with brief justification"
@@ -300,6 +378,7 @@ Your ENTIRE response must be ONLY the JSON object below. Do NOT include:
 - "actors": MUST be array of strings ["A", "B", "C"] - NOT a single comma-separated string
 - "impact": MUST be a single string (500+ words) - NOT an object/dictionary
 - "future_trajectory": MUST be a single string (250+ words) - NOT an object/dictionary
+- "possibilities_reasoning": MUST be a single string (300+ words MINIMUM, 60-100 words per possibility) - NOT an object/dictionary
 - All other list fields: MUST be arrays of strings
 
 **REMEMBER**: 
@@ -537,7 +616,7 @@ try:
             # Future trajectory
             if event.future_trajectory:
                 f.write("┌" + "─"*78 + "┐\n")
-                f.write("│ 🔮 FUTURE SCENARIOS (Multiple Outcomes with Probabilities)" + " "*15 + "│\n")
+                f.write("│ 🔮 POSSIBILITIES (Strength-Rated Future Factors)" + " "*27 + "│\n")
                 f.write("├" + "─"*78 + "┤\n")
                 trajectory_lines = event.future_trajectory.split('\n')
                 for line in trajectory_lines:
@@ -556,6 +635,34 @@ try:
                     else:
                         f.write("│" + " "*78 + "│\n")
                 f.write("└" + "─"*78 + "┘\n\n")
+            
+            # Reasoning for possibilities
+            if hasattr(event, 'possibilities_reasoning') and event.possibilities_reasoning:
+                f.write("┌" + "─"*78 + "┐\n")
+                f.write("│ 🧠 REASONING (How Strength Ratings Were Determined)" + " "*23 + "│\n")
+                f.write("└" + "─"*78 + "┘\n\n")
+                reasoning_lines = event.possibilities_reasoning.split('\n')
+                for line in reasoning_lines:
+                    if line.strip():
+                        # Check if it's a section header (contains " - Strength")
+                        if " - Strength" in line and line.strip().startswith("**"):
+                            f.write(f"\n{line}\n")
+                        else:
+                            # Wrap regular text
+                            words = line.split()
+                            current_line = ""
+                            for word in words:
+                                if len(current_line) + len(word) + 1 <= 78:
+                                    current_line += word + " "
+                                else:
+                                    if current_line:
+                                        f.write(f"{current_line.strip()}\n")
+                                    current_line = word + " "
+                            if current_line:
+                                f.write(f"{current_line.strip()}\n")
+                    else:
+                        f.write("\n")
+                f.write("\n")
             
             # Timeline milestones
             if event.timeline_milestones:
