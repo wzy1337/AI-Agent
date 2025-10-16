@@ -1,3 +1,5 @@
 venv/
 .env
 sample.env
+*.txt
+*json
