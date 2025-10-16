@@ -69,31 +69,41 @@ Focus on non-obvious blind spots that senior policymakers need to know NOW to pr
 
 2️⃣ **PROJECT FUTURE SCENARIOS** (2027/2030/2035 milestones)
    
-   For each event, create THREE possible futures based on your baseline data:
+   Create MULTIPLE discrete scenario outcomes, each with its own probability estimate.
+   Each scenario should describe a SPECIFIC event or outcome that could occur.
    
-   🐢 **CONSERVATIVE** (30% chance) - Things move SLOWER than today
-      • What if growth slows down or faces resistance?
-      • Example: "Currently 15% adoption → Only 20% by 2030 (vs 33% if trend continues)"
-      • Why? Regulatory delays, public skepticism, industry pushback
+   **FORMAT:**
+   - Scenario 1: "[Specific event description]" - Probability: 0.X
+   - Scenario 2: "[Different specific event]" - Probability: 0.X
+   - Scenario 3: "[Another possible outcome]" - Probability: 0.X
    
-   🎯 **REALISTIC** (50% chance) - Current trend CONTINUES unchanged
-      • What if nothing major changes?
-      • Example: "Currently 15% adoption growing 3%/year → 33% by 2030"
-      • Why? Most likely outcome - steady organic growth
+   **EXAMPLES:**
    
-   🚀 **ACCELERATED** (20% chance) - Major catalyst SPEEDS things up
-      • What if government mandates it OR technology disrupts?
-      • Example: "Currently 15% adoption → 60% by 2030 (due to new law requiring it)"
-      • Why? Requires big trigger like legislation/crisis/breakthrough
+   📊 **Digital Payment Mandate Scenarios:**
+   - Scenario 1: "Government mandates 80% digital CPF transactions by 2028" - Probability: 0.65
+   - Scenario 2: "Voluntary adoption stalls at 40% due to elderly resistance" - Probability: 0.25
+   - Scenario 3: "Cybersecurity breach delays digital push until 2032" - Probability: 0.10
    
-   📐 **How to calculate:** 
-   - Conservative = Current trend × 0.5 (slower)
-   - Realistic = Current trend × 1.0 (same pace)
-   - Accelerated = Current trend × 2-3 (faster with catalyst)
+   💼 **Gig Economy CPF Integration Scenarios:**
+   - Scenario 1: "Platform companies forced to contribute CPF for all gig workers by 2027" - Probability: 0.70
+   - Scenario 2: "Voluntary opt-in scheme achieves only 15% participation" - Probability: 0.20
+   - Scenario 3: "Regional ASEAN CPF portability framework launches by 2029" - Probability: 0.10
    
-   🚨 **CRITICAL**: Every projection MUST reference the baseline source
-   Example: "IF current 12% annual growth (Source: MAS 2024 Report) continues → 35-40% adoption by 2030"
-   NOT: "Digital payments will reach 60% by 2030" (without source/calculation)
+   🏥 **Healthcare Cost Inflation Scenarios:**
+   - Scenario 1: "MediSave exhaustion rate doubles to 40% of elderly by 2030" - Probability: 0.55
+   - Scenario 2: "AI diagnostics reduce costs by 25%, slowing MediSave drain" - Probability: 0.30
+   - Scenario 3: "Regional medical tourism shifts 30% of treatments abroad" - Probability: 0.15
+   
+   📐 **How to assign probabilities:**
+   - Base on source-backed evidence (policy momentum, industry trends, regulatory signals)
+   - Higher probability (0.6-0.8): Strong data points to this outcome
+   - Medium probability (0.3-0.5): Plausible but uncertain
+   - Lower probability (0.1-0.2): Possible but requires major unexpected catalyst
+   - Total probabilities across scenarios should sum to ~1.0
+   
+   🚨 **CRITICAL**: Each scenario MUST cite the evidence supporting its probability
+   Example: "Scenario 1 has 0.70 probability based on PM's 2024 National Day Rally commitment + MAS pilot program results showing 85% feasibility"
+   NOT: "Scenario 1: Something will happen - Probability: 0.8" (without justification)
 
 3️⃣ **DEFINE TIPPING POINTS & TRIGGERS**
    - What threshold causes irreversible change? (cite similar precedents)
@@ -180,10 +190,29 @@ Each event MUST include:
      - No-action scenario baseline (what happens if CPF does nothing?)
   
 - **future_trajectory** (250+ words): 
-  * 2027 checkpoint: [Specific metric + source-based projection]
-  * 2030 milestone: [Intermediate scenario with confidence %]
-  * 2035 endpoint: [Long-term outcome + key uncertainties]
-  * Probability distribution: Conservative X% | Realistic Y% | Accelerated Z%
+  Create multiple discrete scenarios, each with specific probability:
+  
+  **FORMAT:**
+  Scenario 1: "[Specific event/outcome description]" - Probability: 0.XX
+  [Explain why this probability based on evidence]
+  
+  Scenario 2: "[Different specific event/outcome]" - Probability: 0.XX
+  [Explain rationale and source backing]
+  
+  Scenario 3: "[Another possible outcome]" - Probability: 0.XX
+  [Justify with data/policy signals]
+  
+  **EXAMPLE:**
+  Scenario 1: "MAS mandates CPF-linked digital wallets for all employers by 2027" - Probability: 0.70
+  Based on Smart Nation 2030 roadmap (gov.sg 2024) + MAS consultation paper showing 85% industry support
+  
+  Scenario 2: "Voluntary adoption plateaus at 35% due to SME resistance" - Probability: 0.20
+  Historical pattern: Similar schemes achieved only 30-40% without mandate (MOM 2023 report)
+  
+  Scenario 3: "Regional ASEAN CPF interoperability delays implementation to 2031" - Probability: 0.10
+  Requires 10-country agreement; precedent shows 5-7 year negotiation cycles
+  
+  Include 2027/2030/2035 checkpoints for the most likely scenario.
   
 - **timeline_milestones**: Concrete dated predictions
   ["2026 Q2: Regulation X triggers shift", "2028: Adoption crosses 40% threshold (based on current 12%/yr growth)", "2032: Market consolidation complete"]
@@ -249,7 +278,7 @@ Your ENTIRE response must be ONLY the JSON object below. Do NOT include:
       "impact": "500+ words PLAIN TEXT STRING with calculated member/financial impact across time horizons. Include fiscal numbers, demographic segments, cascade effects, policy gaps, and urgency with deadlines and options.",
       "source": "https://actual-verifiable-url.com",
       "relevance": "High - justification with numbers OR Medium - justification with numbers",
-      "future_trajectory": "250+ words PLAIN TEXT STRING: 2027 checkpoint with metrics, 2030 milestone with scenarios, 2035 endpoint with uncertainties, Probability distribution percentages",
+      "future_trajectory": "250+ words PLAIN TEXT STRING with multiple scenarios. Format: 'Scenario 1: [Event description] - Probability: 0.XX [Evidence]. Scenario 2: [Different event] - Probability: 0.XX [Rationale]. Scenario 3: [Another outcome] - Probability: 0.XX [Justification]. Include 2027/2030/2035 checkpoints for most likely scenario.'",
       "timeline_milestones": ["2027 Q1: Specific event with context", "2028: Threshold crossed based on X data", "2030: Outcome milestone"],
       "early_warning_indicators": ["Metric X exceeds threshold Y", "Rate Z drops below level A", "Index B shows pattern C"],
       "risk_level": "Critical or High or Medium or Emerging - with brief justification"
@@ -508,7 +537,7 @@ try:
             # Future trajectory
             if event.future_trajectory:
                 f.write("┌" + "─"*78 + "┐\n")
-                f.write("│ 🔮 FUTURE TRAJECTORY (Conservative/Realistic/Accelerated)" + " "*18 + "│\n")
+                f.write("│ 🔮 FUTURE SCENARIOS (Multiple Outcomes with Probabilities)" + " "*15 + "│\n")
                 f.write("├" + "─"*78 + "┤\n")
                 trajectory_lines = event.future_trajectory.split('\n')
                 for line in trajectory_lines:
