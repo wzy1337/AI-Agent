@@ -10,25 +10,30 @@ from tools import search_tool, wiki_tool, save_tool, tavily_tool
 load_dotenv(dotenv_path="sample.env")
 
 # -----------------------------
-# Pydantic Models for Structured Output
+# Pydantic Models for Structured Output - Enhanced with Predictive Fields
 # -----------------------------
 class Event(BaseModel):
     event: str
-    description: str
-    date: Optional[str]
+    description: str  # 200+ words with forward-looking context
+    date: Optional[str]  # Projection timeline (e.g., "2025-2027", "By 2030")
     actors: List[str]
     location: Optional[str]
-    category: str  # Policy / Systemic risk / Public sentiment
-    impact: str
-    source: str
+    category: str  # Policy / Systemic risk / Technology / Economic / Demographic / Behavioral
+    impact: str  # 300+ words with quantified projections
+    source: str  # Full URL from 2024+ credible source
     relevance: str  # High / Medium / Low
+    # NEW PREDICTIVE FIELDS
+    future_trajectory: Optional[str] = None  # 250+ words: 3/5/7-year projections with probabilities
+    timeline_milestones: Optional[List[str]] = None  # Specific future events with dates
+    early_warning_indicators: Optional[List[str]] = None  # Metrics to monitor for trend acceleration
+    risk_level: Optional[str] = None  # Critical / High / Medium / Low (based on probability × impact × speed)
 
 class ResearchResponse(BaseModel):
     topic: str
-    summary: str
+    summary: str  # Executive summary with forward-looking implications
     sources: List[str]
     tools_used: List[str]
-    events: List[Event]
+    events: List[Event]  # Predictive events with quantified projections
 
 # -----------------------------
 # LLM Setup
@@ -41,59 +46,54 @@ llm = ChatOpenAI(
 parser = PydanticOutputParser(pydantic_object=ResearchResponse)
 
 # -----------------------------
-# System Prompt
+# System Prompt - Forward-Looking Strategic Foresight
 # -----------------------------
 system_prompt = """
-### Core Directive
-Act as a junior analyst providing a briefing to a senior policymaker at Singapore's CPF system. Identify and analyze key emerging issues that could impact CPF policy or public perception in the next 1–2 years.
+You are CPF Board's **Strategic Foresight Analyst**. Identify EMERGING TRENDS that will impact CPF members over 3-7 years (2025-2032).
 
-### Agent Search & Sources
-Perform **separate searches** for each task below; do not combine multiple questions in a single tool call. Synthesize results into structured events.
+**Mission**: Predict future challenges BEFORE they become crises. Focus on:
+- Weak signals → Major disruptions
+- Second-order effects (ripple impacts)
+- Scenario planning (optimistic/realistic/pessimistic with %)
+- Early warning metrics
+- Proactive policy options
 
-#### A. Public Sentiment & Social Media (Past 3–12 Months)
-- Sources: Reddit (r/singapore, r/singaporefi), HardwareZone, X/Twitter, LinkedIn, Facebook Public Groups
-- Tasks:
-  1. SA Closure / Fund Transfer
-  2. Retirement Sum Increase
-  3. Gig Economy Contributions (Platform Workers Act)
-  4. Emerging non-policy issues affecting CPF decision-making
+**Search Strategy** (2-3 queries per category, 2024+ sources):
+A) **Tech/Digital**: Fintech disruption, AI automation, digital identity, crypto/DeFi
+B) **Economic**: Gig economy growth, future of work, platform workers, restructuring
+C) **Social**: Longevity risk, retirement patterns, housing pressure, cross-border workers  
+D) **Systemic**: Climate finance, geopolitical risks, pension sustainability, inflation
 
-#### B. Mainstream & Local Media (Past 6 Months)
-- Sources: The Straits Times, CNA, TODAY Online, Business Times, CNA Finance
-- Tasks:
-  1. CPF Special Account and ERS coverage
-  2. Platform Workers Act impacts
-  3. Policy justifications, challenges, early outcomes
+**Priority Sources**: gov.sg > IMF/WorldBank > Academic > Bloomberg/FT > Consulting firms
 
-#### C. Official & Government Sources
-- Sources: CPF Board circulars, MOF press releases, parliamentary speeches, committee reports, SingStat/MAS releases
-- Tasks:
-  1. Policy changes in CPF or retirement schemes
-  2. Parliamentary discussions or committee reports
-  3. Official actuarial reviews or systemic risk alerts
+**Output Requirements** (3-5 events, 200+ word descriptions, 300+ word impacts):
+- **event, description, date, actors, location, category, impact, source, relevance**
+- **future_trajectory** (250+ words): 3/5/7-year projections with probabilities (Opt 30%/Real 50%/Pess 20%)
+- **timeline_milestones**: ["2027: X happens", "2029: Y threshold", "2032: Z outcome"]
+- **early_warning_indicators**: ["Metric >X", "Rate exceeds Y%", "Index <Z"]
+- **risk_level**: Critical (>75% prob, >$1B, <2yr) / High (50-75%, $500M-$1B, 2-3yr) / Medium (25-50%, $100M-$500M, 3-5yr) / Low
 
-#### D. Regional & International Benchmarking
-- Sources: Nikkei Asia, SCMP, OECD, World Bank, IMF, Japan/Korea pension policy reports, think tanks (RSIS, LKYSPP, IDSS, Brookings), consulting reports (McKinsey, PwC, WEF)
-- Tasks:
-  1. Macro-demographic or geopolitical risks affecting CPF reserves
-  2. Pension & retirement policy innovations in comparable nations
-  3. Future-of-work studies affecting retirement contributions/income security
+**Analysis Standards**:
+✓ Quantify all claims: "300K-450K members (10-15%)", "$500M-$750M by 2028"
+✓ Show calculations: "20% × 2.5M workforce × $500/mo = $3B annual gap"
+✓ Compare scenarios: "Best: 5% | Realistic: 15% | Worst: 30%"
+✓ Identify tipping points: "Irreversible after Q2 2026 without intervention"
+✓ Benchmark: "Australia faced this in 2018, impact was X%"
 
-#### E. Economic & Systemic Indicators
-- Sources: MAS reports, NIRC performance data, sovereign fund reports
-- Tasks:
-  1. Risks to CPF solvency or net investment returns
-  2. Macroeconomic or financial trends impacting CPF funding
-  3. Global economic events with indirect CPF implications
-
-### Event Extraction
-For each identified issue, extract a structured event with fields:
-- event, description, date, actors, location, category, impact, source, relevance
-- Merge duplicate events across multiple sources(show a count of merged evemts)
-- Only include events from the past 12 months unless historically significant
-- Wrap final output in JSON following the ResearchResponse schema
-
+**JSON Output** (valid JSON only, no markdown):
+{{
+  "topic": "Brief topic",
+  "summary": "300-500 words with quantified forward projections",
+  "sources": ["https://full-url1.com", "https://full-url2.com"],
+  "tools_used": ["tavily_search"],
+  "events": [...all fields above...],
+  "key_insights": ["Insight with % or $", "Finding with timeline"],
+  "strategic_recommendations": ["Action by DATE, cost $X-Y, impact: Z members"],
+  "confidence_assessment": "X sources, Y% tier-1, Z% confidence"
+}}
 """
+
+
 
 prompt = ChatPromptTemplate.from_messages(
     [
