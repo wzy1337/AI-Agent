@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -7,6 +7,9 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from tools import search_tool, wiki_tool, save_tool, tavily_tool
 import datetime
+from dateutil.relativedelta import relativedelta
+import json
+
 
 load_dotenv(dotenv_path="sample.env")
 
@@ -18,12 +21,13 @@ current_datetime_str = now.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timez
 # -----------------------------
 class Event(BaseModel):
     event: str
-    description: str
+    description: str = Field(description="Detailed context (150+ words) including international comparisons and case studies")
     date: Optional[str]
     actors: List[str]
     location: Optional[str]
     category: str  # Policy / Systemic risk / Public sentiment
-    impact: str
+    impact: str = Field(description="CPF-specific impact analysis (150+ words) with quantified estimates and comparable precedents")
+    scenairo: str = Field(description="Possible scenairos that could occur based on events analysed and prediction (e.g : Event 1 with probabilty )")
     source: str
     relevance: str  # High / Medium / Low
 
@@ -39,7 +43,7 @@ class ResearchResponse(BaseModel):
 # -----------------------------
 llm = ChatOpenAI(
     model="gpt-4o",           # Or "gpt-4o-mini" for faster runs
-    temperature=0,             # Deterministic output for structured data
+    temperature=0.5,             # Deterministic output for structured data
 )
 
 parser = PydanticOutputParser(pydantic_object=ResearchResponse)
@@ -55,55 +59,33 @@ print("="*80)
 # System Prompt
 # -----------------------------
 system_prompt = """
-### **Core Directive**
-You are senior intelligence bot for Central Provident Fund Board (CPFB). 
-Your task is to predict emerging issues that are likely to significantly affect CPF and/or its members in the future. 
-**IMPORTANT TO IGNORE OBVIOUS DEMOGRAPHIC TRENDS(AGEING POPULATION, RISING COST OF LIVING) AS THEY ARE ALREADY OBVIOUS**
+You are a senior intelligence analyst for Central Provident Fund Board (CPFB).
+**Mission:** Identify emerging issues affecting CPF members (2026-2030). Ignore obvious trends like aging or inflation.
 
-# Current Temporal Context (MANDATORY)
-The current date and time is: **{current_date_time}**
-Use this information to correctly resolve any relative time references (e.g., 'today', 'tomorrow', 'next week').
+**Current date:** {current_date_time}
 
+** You will undergo two stages: First perform an analysis of the current issues then NEXT, perform trend analysis and prediction
 **You can analyse current local new articles, forums, international news for understanding of current issues**
-**From there you are to predictions on issues which will emerge as significant problems**
 
-** Search up to 5 unique topics that are currently underlying and are not known to CPFB senior policy maker but is significant. Widen your search as the issues may NOT OBVIOUS**
-
-### Event Extraction Requirements
-
-For each identified issue, provide DETAILED analysis:
-
-**Impact Field (minimum 150 words):**
-- Quantify financial implications where possible (e.g., "could affect $X billion in CPF savings")
-- Identify specific member segments affected (e.g., "primarily impacts members aged 40-55 in gig economy")
-- Provide timeline (short-term: 0-2 years, medium-term: 2-5 years, long-term: 5+ years)
-- Suggest preliminary mitigation strategies
-- Include both direct and indirect effects
-
-**Relevance Field (minimum 100 words):**
-- Explain specific operational impact on CPF systems
-- Map out causal chain from issue to member impact
-- Justify urgency rating (High/Medium/Low) with specific criteria
-- Compare to similar historical precedents if applicable
-
-**Description Field (minimum 100 words):**
-- Provide full context and background
-- Explain why this is emerging NOW
-- Include supporting statistics or data points
-- Mention conflicting viewpoints if relevant
+## Event Extraction Requirements
+**Requirements:**
+- Focus on non-obvious, emerging issues
+- Provide specific data: dollar amounts, percentages, affected populations
+- Include credible sources with URLs
+- Minimum 150 words per description and impact field
+- **MANDATORY: Include international comparisons** - Show how similar issues played out in other countries
+  Example: "Similar to Australia's superannuation early access scheme in 2020, which saw 3.5M withdrawals totaling $38B AUD"
 
 ### Output Requirements
-- Prioritize Singapore and regional (Southeast Asia) sources
 - Include specific dates, not just year
-- Merge duplicate events across multiple sources (show merge count)
+- Cite comparable international cases with outcomes
+- Show what worked/failed in other countries
 - Only include events from the past 12 months
 - Order events by relevance score (High → Medium → Low)
 
 ### **CRITICAL OUTPUT FORMAT**
 Return ONLY a raw JSON object that directly matches the ResearchResponse schema below.
 Do NOT wrap it in markdown code blocks.
-Do NOT add any labels like "ResearchResponse:" before the JSON.
-Do NOT include any explanatory text before or after the JSON.
 
 {format_instructions}
 """
@@ -149,21 +131,31 @@ print("🔍 STAGE 1: BUILDING KNOWLEDGE BASE")
 print("="*80)
 
 # Calculate dates for temporal queries
-from dateutil.relativedelta import relativedelta
 
-knowledge_queries = []
-for months_ago in [0, 3, 6, 9]:  # Current, 3, 6, 9 months ago
-    date = now - relativedelta(months=months_ago)
-    month_year = date.strftime("%B %Y")
+knowledge_queries = [
+    # Broad societal trends
+    {"query": "Singapore emerging social trends 2024 2025", "label": "Singapore Social Trends"},
+    {"query": "Southeast Asia economic political developments 2025", "label": "Regional Developments"},
+    {"query": "global technology disruption employment workforce 2025", "label": "Tech Disruption"},
+    {"query": "financial system changes digital currency fintech Asia 2025", "label": "Financial Innovation"},
     
-    knowledge_queries.append({
-        "query": f"Singapore CPF retirement pension emerging issues trends {month_year}",
-        "label": f"CPF Issues - {month_year}"
-    })
-    knowledge_queries.append({
-        "query": f"Southeast Asia retirement pension system changes {month_year}",
-        "label": f"Regional Trends - {month_year}"
-    })
+    # Open-ended issue discovery
+    {"query": "Singapore controversies debates public concern 2025", "label": "Singapore Public Concerns"},
+    {"query": "Asia retirement savings challenges problems 2025", "label": "Asia Retirement Issues"},
+    {"query": "unexpected economic risks financial stability 2024 2025", "label": "Economic Risks"},
+    {"query": "behavioral changes lifestyle trends millennials Gen Z Asia", "label": "Generational Shifts"},
+    
+    # Weak signal detection
+    {"query": "emerging technologies societal impact future of work", "label": "Emerging Tech Impact"},
+    {"query": "climate change economic consequences Asia infrastructure", "label": "Climate Economic Impact"},
+    {"query": "geopolitical tensions trade regional stability Southeast Asia", "label": "Geopolitical Stability"},
+    {"query": "health trends aging longevity healthcare costs Asia", "label": "Health & Longevity"},
+    
+    # Wild cards
+    {"query": "black swan events tail risks financial markets 2024", "label": "Black Swan Events"},
+    {"query": "social unrest protests inequality Asia 2024", "label": "Social Instability"},
+    {"query": "regulatory changes government policy shifts Singapore 2024", "label": "Regulatory Changes"},
+]
 
 # Gather knowledge from different time periods
 all_knowledge = []
@@ -192,6 +184,15 @@ combined_knowledge = "\n\n" + "="*80 + "\n\n".join(all_knowledge)
 
 print(f"\n✅ Knowledge building complete. Total knowledge: {len(combined_knowledge)} characters")
 
+# Define the prediction query
+prediction_query = """
+Analyze the gathered knowledge and identify 3-5 emerging issues that will significantly 
+impact CPF members from 2026-2030. Focus on non-obvious trends, weak signals, and 
+cross-domain connections. Exclude mainstream topics like AI automation, aging, or climate change 
+unless you can show a novel intersection or accelerating trend.
+"""
+
+
 # -----------------------------
 # STAGE 2: Trend Analysis & Prediction
 # -----------------------------
@@ -201,53 +202,48 @@ print("="*80)
 
 # Create prediction-focused prompt
 prediction_system_prompt = """
-### **Core Directive**
-You are a senior strategic foresight analyst for Central Provident Fund Board (CPFB).
+You are a strategic foresight analyst for CPFB.
 
-You have been provided with knowledge gathered over the past 12 months about retirement, pension, and CPF-related issues.
-Your task is to perform PREDICTIVE ANALYSIS to identify emerging issues that will significantly impact CPF members in 2026-2030.
+**Task:** Analyze the provided knowledge and identify 3-5 emerging issues affecting CPF members (2026-2030).
 
-### **Analysis Framework**
+**Analysis Framework:**
 
-**1. TREND IDENTIFICATION**
-- Which issues appear repeatedly across time periods? (Growing trends)
-- Which issues appeared once but are gaining momentum? (Weak signals)
-- Which issues are declining in importance? (Ignore these)
+1. **Trend Identification:** Which issues are accelerating? Which are weak signals?
+2. **Cross-domain Synthesis:** How do issues interact? What second-order effects emerge?
+3. **Temporal Forecasting:** Short-term (2026-27), Medium-term (2027-29), Long-term (2029+)
+4. **Impact Quantification:** Provide specific numbers:
+   - Dollar impact: "$X billion affects Y members"
+   - Populations: "180,000 workers aged 30-45"
+   - Timelines: "Q2 2026: First signs, Q4 2027: Full impact"
+5. **Scenairo planning based on criteria**
+Strength Scale:
+-• 9-10: Overwhelming evidence, near-certain
+-• 7-8: Strong data, high likelihood
+-• 5-6: Moderate evidence, plausible
+-• 3-4: Weak signals, requires catalysts
+-• 1-2: Speculative, minimal evidence
 
-**2. CROSS-DOMAIN SYNTHESIS**
-- How do different issues interact and compound each other?
-- What second-order and third-order effects might emerge?
-- Which combinations create systemic risks?
+**What to Include:**
+✅ Non-obvious issues not yet on policymakers' radar
+✅ Issues with delayed impacts
+✅ Cross-domain connections (e.g., tech + housing → CPF impact)
+✅ Specific statistics and credible sources with URLs
+✅ Minimum 150 words per impact analysis
 
-**3. TEMPORAL FORECASTING**
-- Short-term (2026-2027): What will materialize soon?
-- Medium-term (2027-2029): What's building momentum?
-- Long-term (2029-2030): What delayed impacts will hit?
-
-**4. WEAK SIGNAL DETECTION**
-Prioritize issues that are:
-- Currently SMALL but GROWING exponentially
-- Have DELAYED impacts (won't be obvious until later)
-- Result from MULTIPLE converging factors
-- NOT yet on policymakers' radar
-
-**5. STRATEGIC SURPRISES**
-- What low-probability, high-impact events could emerge?
-- What assumptions might be wrong?
-- What are the "unknown unknowns"?
-
-### **Exclusion Criteria**
-❌ IGNORE obvious demographic trends (aging population, rising cost of living)
-❌ IGNORE issues already well-known to policymakers
-❌ IGNORE short-term fluctuations without long-term implications
+**What to Exclude:**
+❌ Obvious trends (aging, cost of living)
+❌ Issues already well-known
+❌ Vague predictions without data
 
 ### **Output Requirements**
 - Identify 3-5 HIGH-PRIORITY emerging issues
-- Provide DETAILED impact analysis (minimum 150 words per issue)
+- Provide DETAILED impact analysis (minimum 150 words per issue), YOU ARE PRESENTING TO SENIOR POLICYMAKER BE CLEAR AND CONVINCING
+
 - Include evidence from multiple time periods showing trend evolution
-- Quantify impacts where possible
+- Include the URLS used
+- 
 - Prioritize Singapore/Southeast Asia context
-- Order by: Urgency × Impact × Novelty score
+- Order by: Urgency × Impact × Novelty score ###
 
 ### **CRITICAL OUTPUT FORMAT**
 Return ONLY a raw JSON object matching the ResearchResponse schema.
@@ -257,24 +253,8 @@ Do NOT add labels before the JSON.
 {format_instructions}
 """
 
-# Create prediction prompt with gathered knowledge
-prediction_query = f"""
-Based on the following knowledge gathered over multiple time periods:
+# Around line 200-260, your Stage 2 prompt should be:
 
-{combined_knowledge}
-
----
-
-Now perform your PREDICTIVE ANALYSIS to identify the TOP 3-5 emerging issues that will significantly impact CPF and its members in 2026-2030.
-
-Focus on:
-- Issues that are GROWING across the time periods analyzed
-- WEAK SIGNALS that appear small now but could explode
-- CONVERGENT RISKS from multiple factors combining
-- Issues with DELAYED IMPACTS that aren't obvious yet
-
-Provide detailed, evidence-based predictions with specific timelines and quantified impacts.
-"""
 
 # Use LLM directly for final synthesis (not agent, to avoid more searches)
 prediction_prompt_template = ChatPromptTemplate.from_messages([
