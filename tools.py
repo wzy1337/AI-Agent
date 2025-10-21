@@ -56,36 +56,134 @@ def tavily_search(query: str) -> str:
             search_depth="advanced",
             max_results=10,
             include_domains=[
-                # Singapore Government
-                "cpf.gov.sg", "mas.gov.sg", "mom.gov.sg", "singstat.gov.sg",
-                "pmo.gov.sg", "dos.gov.sg", "mof.gov.sg", "mti.gov.sg", "mha.gov.sg",
-                "mnd.gov.sg", "smartnation.gov.sg",
-                # International Government/Official
-                "imf.org", "worldbank.org", "oecd.org", "un.org", "adb.org", "bis.org",
-                # Singapore News
-                "straitstimes.com", "channelnewsasia.com", "businesstimes.com.sg",
-                "todayonline.com", "zaobao.sg",
-                # International News
-                "bloomberg.com", "reuters.com", "ft.com", "economist.com", "wsj.com",
-                "nikkei.com", "scmp.com", "cnbc.com", "forbes.com",
-                # Research & Think Tanks (Singapore)
-                "rsis.edu.sg", "lkyspp.nus.edu.sg", "ips.org.sg", "iseas.edu.sg",
-                "nus.edu.sg", "smu.edu.sg", "ntu.edu.sg",
-                # Research & Think Tanks (International)
-                "brookings.edu", "chathamhouse.org", "csis.org", "cfr.org", "weforum.org",
-                "nber.org", "rand.org", "piie.com", "carnegieendowment.org",
-                # Financial Institutions (Singapore)
-                "gic.com.sg", "temasek.com.sg", "dbs.com", "ocbc.com", "uob.com",
-                # Financial Institutions (International)
-                "hsbc.com", "jpmorgan.com", "goldmansachs.com", "morganstanley.com",
-                # Consulting
-                "mckinsey.com", "pwc.com", "deloitte.com", "ey.com", "bcg.com",
-                "bain.com", "kpmg.com", "accenture.com",
-                # Industry Bodies
-                "fintech.org.sg", "sba.org.sg", "sgtech.org.sg", "siatp.org.sg"
-            ],
+                    # ========================================
+            # SINGAPORE GOVERNMENT (Core)
+            # ========================================
+            "cpf.gov.sg", "mas.gov.sg", "mom.gov.sg", "singstat.gov.sg",
+            "pmo.gov.sg", "dos.gov.sg", "mof.gov.sg", "mti.gov.sg", "mha.gov.sg",
+            "mnd.gov.sg", "smartnation.gov.sg", "moh.gov.sg", "msf.gov.sg",
+            
+            # ========================================
+            # SINGAPORE NEWS & MEDIA (Essential)
+            # ========================================
+            "straitstimes.com", "channelnewsasia.com", "businesstimes.com.sg",
+            "todayonline.com", "zaobao.sg", "thenewpaper.sg",
+            
+            # ========================================
+            # SINGAPORE ALTERNATIVE/INDEPENDENT MEDIA (Weak Signals)
+            # ========================================
+            "ricemedia.co", "mothership.sg", "yahoo.com/news/singapore",
+            "theonlinecitizen.com", "trs.sg",
+            
+            # ========================================
+            # SINGAPORE PUBLIC FORUMS (Sentiment Analysis)
+            # ========================================
+            "reddit.com/r/singapore", "reddit.com/r/singaporefi",
+            "hardwarezone.com.sg",
+            
+            # ========================================
+            # REGIONAL GOVERNMENTS (Precedents)
+            # ========================================
+            # Malaysia
+            "kwsp.gov.my", "bnm.gov.my", "treasury.gov.my",
+            # Hong Kong
+            "mpfa.org.hk", "hkma.gov.hk", "fstb.gov.hk",
+            # Australia
+            "treasury.gov.au", "apra.gov.au", "ato.gov.au",
+            # UK
+            "gov.uk/government/organisations/department-for-work-pensions",
+            "gov.uk/government/organisations/hm-treasury",
+            # Japan
+            "mhlw.go.jp", "gpif.go.jp",
+            # South Korea
+            "nps.or.kr", "moel.go.kr",
+            # Canada
+            "canada.ca/en/services/benefits/publicpensions",
+            
+            # ========================================
+            # REGIONAL NEWS (SEA Context)
+            # ========================================
+            "scmp.com", "bangkokpost.com", "thestar.com.my",
+            "straitstimes.com", "channelnewsasia.com",
+            "nikkei.com", "japantimes.co.jp",
+            
+            # ========================================
+            # INTERNATIONAL NEWS (Global Context)
+            # ========================================
+            "bloomberg.com", "reuters.com", "ft.com", "economist.com",
+            "wsj.com", "cnbc.com", "forbes.com", "businessinsider.com",
+            "theguardian.com", "bbc.com/news",
+            
+            # ========================================
+            # INTERNATIONAL FINANCIAL INSTITUTIONS
+            # ========================================
+            "imf.org", "worldbank.org", "oecd.org", "adb.org",
+            "bis.org", "un.org", "weforum.org",
+            
+            # ========================================
+            # SINGAPORE RESEARCH & THINK TANKS
+            # ========================================
+            "rsis.edu.sg", "lkyspp.nus.edu.sg", "ips.org.sg", "iseas.edu.sg",
+            "nus.edu.sg", "smu.edu.sg", "ntu.edu.sg", "sutd.edu.sg",
+            
+            # ========================================
+            # INTERNATIONAL RESEARCH & THINK TANKS
+            # ========================================
+            "brookings.edu", "chathamhouse.org", "csis.org", "cfr.org",
+            "nber.org", "rand.org", "piie.com", "carnegieendowment.org",
+            "bruegel.org", "urban.org", "taxpolicycenter.org",
+            
+            # ========================================
+            # SINGAPORE FINANCIAL INSTITUTIONS
+            # ========================================
+            "gic.com.sg", "temasek.com.sg", "dbs.com", "ocbc.com",
+            "uob.com", "sc.com/sg", "maybank.com/singapore",
+            
+            # ========================================
+            # INTERNATIONAL FINANCIAL INSTITUTIONS
+            # ========================================
+            "hsbc.com", "jpmorgan.com", "goldmansachs.com",
+            "morganstanley.com", "blackrock.com", "vanguard.com",
+            
+            # ========================================
+            # CONSULTING & PROFESSIONAL SERVICES
+            # ========================================
+            "mckinsey.com", "pwc.com", "deloitte.com", "ey.com",
+            "bcg.com", "bain.com", "kpmg.com", "accenture.com",
+            "oliverwyman.com", "mercer.com",
+            
+            # ========================================
+            # SINGAPORE INDUSTRY BODIES & ASSOCIATIONS
+            # ========================================
+            "fintech.org.sg", "sba.org.sg", "sgtech.org.sg",
+            "siatp.org.sg", "sias.org.sg", "ntuc.org.sg",
+            
+            # ========================================
+            # PENSION/RETIREMENT SPECIALISTS
+            # ========================================
+            "pensionsage.com", "ipe.com", "pionline.com",
+            "top1000funds.com", "institutionalinvestor.com",
+            
+            # ========================================
+            # TECHNOLOGY & FUTURE OF WORK
+            # ========================================
+            "techcrunch.com", "wired.com", "technologyreview.com",
+            "venturebeat.com", "zdnet.com",
+            
+            # ========================================
+            # HEALTHCARE & AGING
+            # ========================================
+            "thelancet.com", "nejm.org", "who.int",
+            "healthaffairs.org", "kff.org",
+            
+            # ========================================
+            # ACADEMIC JOURNALS (Open Access)
+            # ========================================
+            "nature.com", "science.org", "plos.org",
+            "frontiersin.org", "mdpi.com",
+        ],
             include_answer=True,
-            include_raw_content=False
+            include_raw_content=True
         )
         
         # Format results with COMPLETE URLs
