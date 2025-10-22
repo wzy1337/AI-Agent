@@ -9,10 +9,12 @@ from tools import search_tool, wiki_tool, save_tool, tavily_tool
 import datetime
 from dateutil.relativedelta import relativedelta
 import json
+import re
 
-
+# Import API keys from sample.env file
 load_dotenv(dotenv_path="sample.env")
-
+ 
+#Find Current Date for LLM context
 now = datetime.datetime.now()
 current_datetime_str = now.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timezone is UTC+8.")
 
@@ -22,19 +24,22 @@ current_datetime_str = now.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timez
 class Event(BaseModel):
     event: str
     description: str = Field(description="Detailed context (150+ words) including international comparisons and case studies")
-    date: Optional[str]
+    date: List[str] = Field(description="Dates of the various sources in Day/Month/Year format, seperated by ',' ")
     actors: List[str]
     location: Optional[str]
     category: str  # Policy / Systemic risk / Public sentiment
     impact: str = Field(description="CPF-specific impact analysis (150+ words) with quantified estimates and comparable precedents")
-    scenairo: str = Field(description="Possible scenairos that could occur based on events analysed and prediction (e.g : Event 1 with probabilty )")
-    source: str
-    relevance: str  # High / Medium / Low
+    scenario: str = Field(min_length=300,description="Possible scenairos that could occur based on events analysed and prediction (EXAMPLE: By {year}, {event} is likely to occur with probabilty of 9/10 AND By {year},{event} is likely to occur with probabilty of 3/10. Justify")
+    source: str = Field(description="MANDATORY: Full article URLs used as evidence, separated by commas (e.g., https://full-url-1, https://full-url-2). NO generic domains.")    
+    relevance: str =Field(description="High/medium/low with a justification") # High / Medium / Low
+    policy_intervention: str = Field(description="Suggest possible way policymakers could intervene to capitalise or alleviate this issue(150+ words)." \
+    "MUST link to a specific CPF account (OA, SA, MA) or scheme")
 
+# One research response---(contains)---> multiple events--> one event covers all the fields listed above
 class ResearchResponse(BaseModel):
     topic: str
-    summary: str
-    sources: List[str]
+    summary: str 
+    sources: List[str] = Field(description="MANDATORY:List all article URLs used as evidence, separated by commas (e.g., https://full-url-1, https://full-url-2). NO generic domains.")  
     tools_used: List[str]
     events: List[Event]
 
@@ -43,7 +48,7 @@ class ResearchResponse(BaseModel):
 # -----------------------------
 llm = ChatOpenAI(
     model="gpt-4o",           # Or "gpt-4o-mini" for faster runs
-    temperature=0.5,             # Deterministic output for structured data
+    temperature=0,             # Deterministic output for structured data
 )
 
 parser = PydanticOutputParser(pydantic_object=ResearchResponse)
@@ -59,37 +64,20 @@ print("="*80)
 # System Prompt
 # -----------------------------
 system_prompt = """
-You are a senior intelligence analyst for Central Provident Fund Board (CPFB).
-**Mission:** Identify emerging issues affecting CPF members (2026-2030). Ignore obvious trends like aging or inflation.
+You are an **elite research assistant** for CPF policy analysis.
+Your intelligence horizon is **STRICTLY 2024-2025**.
+Current date: {current_date_time}
 
-**Current date:** {current_date_time}
+Your SOLE task is to execute the user's query by using the available tools and **returning the findings as a single, raw JSON object**.
 
-** You will undergo two stages: First perform an analysis of the current issues then NEXT, perform trend analysis and prediction
-**You can analyse current local new articles, forums, international news for understanding of current issues**
-
-## Event Extraction Requirements
-**Requirements:**
-- Focus on non-obvious, emerging issues
-- Provide specific data: dollar amounts, percentages, affected populations
-- Include credible sources with URLs
-- Minimum 150 words per description and impact field
-- **MANDATORY: Include international comparisons** - Show how similar issues played out in other countries
-  Example: "Similar to Australia's superannuation early access scheme in 2020, which saw 3.5M withdrawals totaling $38B AUD"
-
-### Output Requirements
-- Include specific dates, not just year
-- Cite comparable international cases with outcomes
-- Show what worked/failed in other countries
-- Only include events from the past 12 months
-- Order events by relevance score (High → Medium → Low)
-
-### **CRITICAL OUTPUT FORMAT**
-Return ONLY a raw JSON object that directly matches the ResearchResponse schema below.
-Do NOT wrap it in markdown code blocks.
+### **CRITICAL OUTPUT INSTRUCTIONS**
+1. **DO NOT** generate any introductory text, conversation, apologies, or markdown code blocks (e.g., ```json...```).
+2. **RETURN ONLY** the raw JSON object that precisely conforms to the ResearchResponse schema provided below.
+3. For the 'events' list, you MUST create a detailed and well-supported Event object for every key finding.
+4. Your analysis must be **evidence-based** and fully leverage the details in the Pydantic Field Descriptions (especially the minimum length, specific formatting, and required content).
 
 {format_instructions}
 """
-
 
 prompt = ChatPromptTemplate.from_messages(
     [
@@ -130,38 +118,22 @@ print("\n" + "="*80)
 print("🔍 STAGE 1: BUILDING KNOWLEDGE BASE")
 print("="*80)
 
-# Calculate dates for temporal queries
-
 knowledge_queries = [
-    # Broad societal trends
-    {"query": "Singapore emerging social trends 2024 2025", "label": "Singapore Social Trends"},
-    {"query": "Southeast Asia economic political developments 2025", "label": "Regional Developments"},
-    {"query": "global technology disruption employment workforce 2025", "label": "Tech Disruption"},
-    {"query": "financial system changes digital currency fintech Asia 2025", "label": "Financial Innovation"},
-    
-    # Open-ended issue discovery
-    {"query": "Singapore controversies debates public concern 2025", "label": "Singapore Public Concerns"},
-    {"query": "Asia retirement savings challenges problems 2025", "label": "Asia Retirement Issues"},
-    {"query": "unexpected economic risks financial stability 2024 2025", "label": "Economic Risks"},
-    {"query": "behavioral changes lifestyle trends millennials Gen Z Asia", "label": "Generational Shifts"},
-    
-    # Weak signal detection
-    {"query": "emerging technologies societal impact future of work", "label": "Emerging Tech Impact"},
-    {"query": "climate change economic consequences Asia infrastructure", "label": "Climate Economic Impact"},
-    {"query": "geopolitical tensions trade regional stability Southeast Asia", "label": "Geopolitical Stability"},
-    {"query": "health trends aging longevity healthcare costs Asia", "label": "Health & Longevity"},
-    
-    # Wild cards
-    {"query": "black swan events tail risks financial markets 2024", "label": "Black Swan Events"},
-    {"query": "social unrest protests inequality Asia 2024", "label": "Social Instability"},
-    {"query": "regulatory changes government policy shifts Singapore 2024", "label": "Regulatory Changes"},
+    {"query": "Singapore CPF retirement savings issues 2024 2025", "label": "CPF & Retirement"},
+    {"query": "Singapore employment gig economy workforce 2024 2025", "label": "Employment"},
+    {"query": "Singapore housing healthcare costs 2024 2025", "label": "Housing & Healthcare"},
+    {"query": "Singapore economy income families finances 2024 2025", "label": "Economic Context"},
+    {"query": "Singapore policy government announcements 2024 2025", "label": "Policy"},
+    {"query": "Asia pension systems retirement challenges 2024 2025", "label": "Regional Context"},
+    {"query": "International pension systems retirement challenges 2024 2025","label": "International context"},
 ]
 
 # Gather knowledge from different time periods
 all_knowledge = []
 all_sources = []
+found_urls = []  # ADD THIS: Track URLs
 
-for idx, kq in enumerate(knowledge_queries[:6], 1):  # Limit to 6 queries to save time
+for idx, kq in enumerate(knowledge_queries[:9], 1):
     print(f"\n📚 [{idx}/6] Gathering: {kq['label']}")
     print(f"    Query: {kq['query']}")
     
@@ -170,26 +142,89 @@ for idx, kq in enumerate(knowledge_queries[:6], 1):  # Limit to 6 queries to sav
         output = knowledge_response.get("output", "")
         
         if output:
+            # Extract URLs from output
+            urls_in_output = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', output)
+            found_urls.extend(urls_in_output)
+            
             all_knowledge.append(f"## {kq['label']}\n{output}")
             all_sources.append(output)
-            print(f"    ✅ Collected {len(output)} characters")
+            print(f"✅ Collected {len(output)} characters, {len(urls_in_output)} URLs")
+            
+            # ADD THIS: Show found URLs
+            if urls_in_output:
+                for url in urls_in_output[:2]:  # Show first 2
+                    print(f"       📎 {url}")
         else:
             print(f"    ⚠️ No output received")
     except Exception as e:
-        print(f"    ❌ Error: {e}")
+        print(f"❌ Error: {e}")
         continue
+
+# ADD THIS: Deduplicate URLs
+unique_urls = list(dict.fromkeys(found_urls))
+print(f"\n📊 Total unique URLs collected: {len(unique_urls)}")
 
 # Combine all knowledge
 combined_knowledge = "\n\n" + "="*80 + "\n\n".join(all_knowledge)
 
 print(f"\n✅ Knowledge building complete. Total knowledge: {len(combined_knowledge)} characters")
 
-# Define the prediction query
-prediction_query = """
-Analyze the gathered knowledge and identify 3-5 emerging issues that will significantly 
-impact CPF members from 2026-2030. Focus on non-obvious trends, weak signals, and 
-cross-domain connections. Exclude mainstream topics like AI automation, aging, or climate change 
-unless you can show a novel intersection or accelerating trend.
+# Show collected URLs
+if unique_urls:
+    print("\n" + "="*80)
+    print("📎 COLLECTED URLS FOR STAGE 2")
+    print("="*80)
+    for i, url in enumerate(unique_urls[:20], 1):
+        print(f"{i}. {url}")
+    if len(unique_urls) > 20:
+        print(f"... and {len(unique_urls) - 20} more")
+
+# -----------------------------
+# ENHANCED URL TRACKING & VALIDATION
+# -----------------------------
+print("\n" + "="*80)
+print("🔍 DEBUGGING: URL-TO-CONTENT MAPPING")
+print("="*80)
+
+# Create a mapping of URLs to their content
+url_to_content = {}
+for idx, kq in enumerate(knowledge_queries[:9], 1):
+    output = all_sources[idx-1] if idx-1 < len(all_sources) else ""
+    urls_in_section = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', output)
+    
+    for url in urls_in_section:
+        if url not in url_to_content:
+            # Extract ~200 chars of context around the URL
+            url_pos = output.find(url)
+            context_start = max(0, url_pos - 100)
+            context_end = min(len(output), url_pos + len(url) + 100)
+            context = output[context_start:context_end]
+            
+            url_to_content[url] = {
+                'topic': kq['label'],
+                'context': context,
+                'full_section': output
+            }
+
+print(f"📊 Mapped {len(url_to_content)} unique URLs to content")
+
+# Show sample mappings
+for i, (url, data) in enumerate(list(url_to_content.items())[:3], 1):
+    print(f"\n{i}. {url[:60]}...")
+    print(f"   Topic: {data['topic']}")
+    print(f"   Context: {data['context'][:100]}...")
+
+# Define the prediction query with URLs (Improved for direct action)
+prediction_query = f"""
+**ANALYZE & FORECAST: Identify 3-5 high-priority, non-obvious emerging issues impacting CPF members (2026-2035).**
+Order the final output by Urgency × Impact × Novelty score.
+
+### GATHERED KNOWLEDGE:
+{combined_knowledge}
+
+### AVAILABLE SOURCE URLS WITH CONTEXT (USE THESE EXACT FULL URLs):
+{chr(10).join([f"- {url} (Topic: {url_to_content[url]['topic']})" for url in unique_urls[:50] if url in url_to_content])}
+
 """
 
 
@@ -201,56 +236,68 @@ print("🔮 STAGE 2: TREND ANALYSIS & PREDICTIVE SYNTHESIS")
 print("="*80)
 
 # Create prediction-focused prompt
-prediction_system_prompt = """
-You are a strategic foresight analyst for CPFB.
+prediction_system_prompt = f"""
+You are a **Strategic Foresight Analyst** for the CPFB, mandated to provide **early warning** of specific, actionable threats to CPF members (up to 4.4 million) from 2026-2035.
 
-**Task:** Analyze the provided knowledge and identify 3-5 emerging issues affecting CPF members (2026-2030).
+**🚨 MANDATE: FIND WHAT OTHERS ARE MISSING.**
+**Exclude** mainstream topics (e.g., general aging, AI disruption, climate change) unless you identify a 
+**novel, accelerating intersection** or a **second-order effect** specific to CPF financial security.
 
-**Analysis Framework:**
+---
+## CORE TASK & CITATION REQUIREMENTS (MANDATORY)
+**Task:** Analyze the provided knowledge to identify **3-5 High-Priority Emerging Issues** (2026-2035).
 
-1. **Trend Identification:** Which issues are accelerating? Which are weak signals?
-2. **Cross-domain Synthesis:** How do issues interact? What second-order effects emerge?
-3. **Temporal Forecasting:** Short-term (2026-27), Medium-term (2027-29), Long-term (2029+)
-4. **Impact Quantification:** Provide specific numbers:
-   - Dollar impact: "$X billion affects Y members"
-   - Populations: "180,000 workers aged 30-45"
-   - Timelines: "Q2 2026: First signs, Q4 2027: Full impact"
-5. **Scenairo planning based on criteria**
-Strength Scale:
--• 9-10: Overwhelming evidence, near-certain
--• 7-8: Strong data, high likelihood
--• 5-6: Moderate evidence, plausible
--• 3-4: Weak signals, requires catalysts
--• 1-2: Speculative, minimal evidence
+**Output Criteria:**
+1.  **Novelty:** Focus on **weak signals** and **cross-domain connections** (e.g., fintech regulation + healthcare costs → CPF impact).
+2.  **Depth:** Minimum **150 words** per issue analysis. Be clear, convincing, and present specific numbers/data (dollar impact, affected populations, timelines) where possible.
 
-**What to Include:**
-✅ Non-obvious issues not yet on policymakers' radar
-✅ Issues with delayed impacts
-✅ Cross-domain connections (e.g., tech + housing → CPF impact)
-✅ Specific statistics and credible sources with URLs
-✅ Minimum 150 words per impact analysis
+**Source Citation (ABSOLUTE REQUIREMENT):**
+-   You **MUST** cite URLs from the list provided in the query.
+-   **MINIMUM 2-3 URLs per event** to demonstrate thorough research
+-   Use **FULL ARTICLE URLs** (e.g., https://www.channelnewsasia.com/singapore/cpf-withdrawal-changes-gig-workers-2024-10-15).
+-   DO NOT use generic domains (e.g., "www.mom.gov.sg") or invent URLs.
+-   **Format:** `"source": "https://full-url-1, https://full-url-2, https://full-url-3"` (Separate multiple URLs with commas).
+-   **Cross-reference:** Use URLs from DIFFERENT topics to show cross-domain analysis
+-   If NO matching URL exists in the list for a point, write: `"Source: [Publication Name] - URL not available in search results"`.
 
-**What to Exclude:**
-❌ Obvious trends (aging, cost of living)
-❌ Issues already well-known
-❌ Vague predictions without data
+**Citation Strategy:**
+- Primary claim → Cite main URL
+- Supporting statistics → Cite additional URL
+- Comparative precedent(WHERE POSSIBLE) → Cite international/regional URL
+- Each major paragraph in description/impact should reference at least one URL
+- For each major paragraph cite the relvevant URLS for substantiation 
 
-### **Output Requirements**
-- Identify 3-5 HIGH-PRIORITY emerging issues
-- Provide DETAILED impact analysis (minimum 150 words per issue), YOU ARE PRESENTING TO SENIOR POLICYMAKER BE CLEAR AND CONVINCING
 
-- Include evidence from multiple time periods showing trend evolution
-- Include the URLS used
-- 
-- Prioritize Singapore/Southeast Asia context
-- Order by: Urgency × Impact × Novelty score ###
+## ANALYSIS & SCENARIO FRAMEWORK
+**Trend Evolution & Forecasting:**
+* **Time:** Show trend progression (Short-term: 2026-27, Medium-term: 2027-29, Long-term: 2029+).
+* **Strength Scale (Likelihood):**
+    * 9-10: Overwhelming evidence, near-certain
+    * 7-8: Strong data, high likelihood
+    * 5-6: Moderate evidence, plausible
+    * 3-4: Weak signals, requires catalysts
+    * 1-2: Speculative, minimal evidence
 
+
+**Final Ordering:**
+The issues must be ordered by the combined metric: **Urgency × Impact × Novelty score.**
+
+### FEW-SHOT EXAMPLES: SCENARIO PLANNING
+Use the structure and depth below to guide your analysis of the 3-5 emerging issues. Notice the connection between the **Strength Scale** and the **specific quantification** of the threat.
+
+| Issue Focus | Timeframe | Strength (Likelihood) | Scenario Application (Required Output Depth) |
+| :--- | :--- | :--- | :--- |
+| **"Quiet Quitting" and CPF Contribution Gaps in the Sandwich Generation** | 2026-2030 | 7-8 (Strong data) | The trend of high-performing individuals (35-50 y.o.) downshifting careers or coasting to manage eldercare/childcare stress. This results in stagnant wages/bonuses, leading to a projected **S$X billion shortfall** in their Ordinary Account (OA) balances by 2035, specifically impacting their Minimum Sum eligibility and housing payment capacity. |
+| **Rapid Adoption of Decentralized Autonomous Organizations (DAOs) and Enforcement Complexity** | 2028-2035 | 5-6 (Moderate evidence) | A small, yet accelerating, cohort of young, high-earning gig workers (tech/creative) receiving substantial income and tokens through global DAO treasuries, entirely bypassing traditional Singaporean payroll. This creates a regulatory gap, leading to unintentional **non-compliance** in mandatory CPF contributions for an estimated **Y thousand members** by 2030, reducing their Medisave balances. |
+| **Exaggerated Longevity Claims Fueling Irrational Withdrawal at 55** | 2026-2028 | 3-4 (Weak signals) | Media hype around medical breakthroughs (e.g., cell rejuvenation therapies) and increased average lifespans leads a segment of members who have recently turned 55 to withdraw the maximum amount of their **Special Account (SA)** savings, based on the **irrational belief** that they have 10-15 more years to work. This prematurely depletes their guaranteed interest nest egg, leading to an earlier-than-expected reliance on government assistance for **Z members** post-2040. |
+
+---
 ### **CRITICAL OUTPUT FORMAT**
-Return ONLY a raw JSON object matching the ResearchResponse schema.
+Return **ONLY** a raw JSON object matching the ResearchResponse schema.
 Do NOT wrap in markdown code blocks.
-Do NOT add labels before the JSON.
+Do NOT add labels or explanatory text before or after the JSON.
 
-{format_instructions}
+{{format_instructions}}
 """
 
 # Around line 200-260, your Stage 2 prompt should be:
@@ -273,7 +320,7 @@ try:
     prediction_output = llm.invoke(formatted_messages)
     output_text = prediction_output.content
 
-    print(f"   ✅ Prediction generated: {len(output_text)} characters")
+    print(f"✅ Prediction generated: {len(output_text)} characters")
 
     # Parse the response
     print("\n" + "="*80)
@@ -303,6 +350,73 @@ try:
         json_text = json.dumps(parsed_json["ResearchResponse"])
     
     structured_response = parser.parse(json_text)
+    
+    # Validate URLs in sources
+    print("\n" + "="*80)
+    print("🔗 VALIDATING SOURCE URLS")
+    print("="*80)
+
+    for idx, event in enumerate(structured_response.events, 1):
+        print(f"\n📌 Event {idx}: {event.event}")
+        
+        if event.source:
+            sources = [s.strip() for s in event.source.split(',')]
+            
+            for source in sources:
+                # Check if it's a full URL
+                if 'http' in source:
+                    path_count = source.count('/')
+                    if path_count > 3:  # Has article path
+                        print(f"   ✅ Full URL: {source[:80]}...")
+                    else:
+                        print(f"   ⚠️ Generic domain (no article path): {source}")
+                else:
+                    print(f"   ❌ Not a URL: {source}")
+        else:
+            print(f"   ❌ No source provided")
+    
+    # DETAILED URL USAGE ANALYSIS
+    print("\n" + "="*80)
+    print("🔬 DETAILED URL USAGE ANALYSIS")
+    print("="*80)
+
+    for idx, event in enumerate(structured_response.events, 1):
+        print(f"\n📌 Event {idx}: {event.event}")
+        print(f"   Category: {event.category}")
+        
+        if event.source:
+            sources = [s.strip() for s in event.source.split(',')]
+            print(f"   Total URLs cited: {len(sources)}")
+            
+            for i, source in enumerate(sources, 1):
+                # Check if it's a full URL
+                if 'http' in source:
+                    path_count = source.count('/')
+                    
+                    # Check if URL was in our collected list
+                    is_from_search = source in unique_urls
+                    
+                    if path_count > 3:  # Has article path
+                        status = "✅ Valid" if is_from_search else "⚠️ Valid but not from search"
+                        print(f"   {i}. {status}: {source[:70]}...")
+                        
+                        # Show which topic this URL came from
+                        if source in url_to_content:
+                            print(f"      📚 From: {url_to_content[source]['topic']}")
+                    else:
+                        print(f"   {i}. ⚠️ Generic domain: {source}")
+                else:
+                    print(f"   {i}. ❌ Not a URL: {source}")
+            
+            # Analyze if event needs more sources
+            event_word_count = len(event.description.split()) + len(event.impact.split())
+            recommended_sources = max(2, min(5, event_word_count // 150))
+            
+            if len(sources) < recommended_sources:
+                print(f"   ⚠️ RECOMMENDATION: Add {recommended_sources - len(sources)} more sources")
+                print(f"      (Event has {event_word_count} words, recommending {recommended_sources} sources)")
+        else:
+            print(f"   ❌ NO SOURCES PROVIDED")
     
     print("\n" + "="*80)
     print("✅ FINAL PREDICTIVE INTELLIGENCE REPORT")
