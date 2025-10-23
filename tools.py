@@ -44,6 +44,10 @@ def tavily_search(query: str) -> str:
     Returns high-quality results from credible sources with full article URLs.
     """
     try:
+
+        end_date = datetime.now()
+        start_date = datetime(2024, 1, 1)
+
         if not tavily_api_key:
             return "❌ Tavily API key not configured. Please add TAVILY_API_KEY to sample.env file."
         
@@ -55,6 +59,10 @@ def tavily_search(query: str) -> str:
             query=query,
             search_depth="advanced",
             max_results=10,
+
+            start_published_date=start_date.strftime("%Y-%m-%d"),  # "2024-01-01"
+            end_published_date=end_date.strftime("%Y-%m-%d"),      # "2024-10-23"
+            
             include_domains=[
                     # ========================================
             # SINGAPORE GOVERNMENT (Core)
