@@ -102,7 +102,7 @@ class ResearchResponse(BaseModel):
 # LLM Setup
 # -----------------------------
 llm = ChatOpenAI(
-    model="gpt-4o",           # Or "gpt-4o-mini" for faster runs
+    model="gpt-4o-mini",           # Or "gpt-4o-mini" for faster runs
     temperature=0,             # Deterministic output for structured data
 )
 
@@ -164,18 +164,84 @@ agent = create_tool_calling_agent(
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
 # -----------------------------
-# STAGE 1: Autonomous Knowledge Discovery
+# STAGE 1: Knowledge Building
 # -----------------------------
 print("" + "="*80)
-print("🔍 STAGE 1: AUTONOMOUS HORIZON SCANNING")
+print("🔍 STAGE 1: BUILDING KNOWLEDGE BASE")
 print("="*80)
 
+# "Singapore social media CPF discussions 2024 2025"
+# "Singapore social security changes 2024 2025"
+
+
+knowledge_queries = [
+    # ============================================
+    # TIER 1: GLOBAL MACRO TRENDS & SYSTEMIC RISKS
+    # ============================================
+    {"query": "What are the biggest global economic, demographic, or geopolitical risks that could impact retirement systems and pension funds worldwide 2024-2025?", "label": "Global Macro: Systemic Risks to Retirement", "sentiment": "horizon"},
+    {"query": "What are international organizations (IMF, World Bank, OECD, BIS) warning about regarding pension sustainability and retirement adequacy 2024-2025?", "label": "Global Macro: International Warnings", "sentiment": "horizon"},
+    {"query": "What are the most significant pension crises, reforms, or failures happening globally 2024-2025? Include Europe, Asia, Americas, and emerging markets.", "label": "Global Macro: Pension Crises Worldwide", "sentiment": "horizon"},
+    
+    # ============================================
+    # TIER 2: CROSS-BORDER TRENDS & PRECEDENTS
+    # ============================================
+    {"query": "What innovative or experimental pension reforms are being tested in Nordic countries, UK, Australia, Canada, Japan 2024-2025?", "label": "International: Advanced Economy Experiments", "sentiment": "horizon"},
+    {"query": "What retirement and social security challenges are Asian countries (Japan, South Korea, Taiwan, Hong Kong, Malaysia) facing 2024-2025? Regional comparisons.", "label": "International: Asian Retirement Challenges", "sentiment": "horizon"},
+    {"query": "What lessons from international pension failures or controversies could apply to Singapore 2024-2025? Include UK, US, European cases.", "label": "International: Cautionary Tales & Failures", "sentiment": "horizon"},
+    {"query": "What are global think tanks and research institutions publishing about future-of-retirement and pension sustainability 2024-2025? Include Brookings, CSIS, Peterson Institute.", "label": "International: Think Tank Research", "sentiment": "horizon"},
+    
+    # ============================================
+    # TIER 3: TECHNOLOGY & DISRUPTION
+    # ============================================
+    {"query": "How are AI, automation, and gig economy disrupting traditional employment and retirement savings globally 2024-2025? Future of work implications.", "label": "Tech Disruption: AI & Future of Work", "sentiment": "horizon"},
+    {"query": "What are fintech, crypto, and web3 innovations in retirement planning and pension management 2024-2025? Include DeFi, tokenization, digital assets.", "label": "Tech Disruption: Fintech & Web3 Pensions", "sentiment": "horizon"},
+    {"query": "What are the cybersecurity risks, data breaches, or tech failures affecting pension funds and retirement systems 2024-2025?", "label": "Tech Disruption: Cyber Risks to Pensions", "sentiment": "horizon"},
+    {"query": "How are longevity breakthroughs, healthtech, and aging science changing retirement planning assumptions 2024-2025? Impact of living to 100+.", "label": "Tech Disruption: Longevity & Healthtech", "sentiment": "horizon"},
+    
+    # ============================================
+    # TIER 4: WEAK SIGNALS & FRINGE SOURCES
+    # ============================================
+    {"query": "What are the most surprising, unconventional, or contrarian views on retirement and pensions from blogs, podcasts, and alternative media 2024-2025?", "label": "Weak Signals: Alternative Media & Contrarians", "sentiment": "horizon"},
+    {"query": "What are early warning signals, emerging risks, or 'canary in the coal mine' indicators for retirement systems from forums, Reddit, Twitter/X 2024-2025?", "label": "Weak Signals: Social Media Early Warnings", "sentiment": "horizon"},
+    {"query": "What speculative scenarios, black swan events, or 'what if' analyses exist for pension and retirement systems 2024-2025? Include scenario planning.", "label": "Weak Signals: Black Swan Scenarios", "sentiment": "horizon"},
+    {"query": "What are fringe communities, subcultures, or movements saying about retirement (FIRE movement, anti-work, digital nomads) 2024-2025?", "label": "Weak Signals: Fringe Movements & Subcultures", "sentiment": "horizon"},
+    
+    # ============================================
+    # TIER 5: INTERDISCIPLINARY & ADJACENT DOMAINS
+    # ============================================
+    {"query": "How are climate change, environmental risks, and ESG factors affecting pension fund strategies and retirement security 2024-2025?", "label": "Adjacent: Climate & ESG Impact", "sentiment": "horizon"},
+    {"query": "What are behavioral economics and psychology insights on retirement savings behavior and pension engagement 2024-2025? Nudge theory applications.", "label": "Adjacent: Behavioral Economics", "sentiment": "horizon"},
+    {"query": "How are housing affordability crisis, real estate bubbles, and homeownership affecting retirement adequacy globally 2024-2025?", "label": "Adjacent: Housing & Retirement", "sentiment": "horizon"},
+    {"query": "What are healthcare cost inflation, long-term care crises, and medical bankruptcy implications for retirement planning 2024-2025?", "label": "Adjacent: Healthcare Costs & Retirement", "sentiment": "horizon"},
+    
+    # ============================================
+    # TIER 6: SINGAPORE-SPECIFIC (Enhanced Scope)
+    # ============================================
+    {"query": "What are the most surprising or under-discussed CPF and retirement issues in Singapore 2024-2025? Include forums, social media, Reddit r/singapore.", "label": "Singapore: Non-Obvious Issues & Ground Sensing", "sentiment": "horizon"},
+    {"query": "What are Singapore policymakers, ministers, and MPs saying about CPF reforms and retirement challenges 2024-2025? Parliamentary debates.", "label": "Singapore: Policy Signals & Debates", "sentiment": "horizon"},
+    {"query": "What are Singaporean researchers, universities, and think tanks (LKYSPP, IPS, RSIS) publishing on CPF and retirement 2024-2025?", "label": "Singapore: Academic & Research", "sentiment": "horizon"},
+    {"query": "How do Singapore's retirement challenges compare to regional neighbors and advanced economies 2024-2025? Benchmarking and gap analysis.", "label": "Singapore: Comparative Analysis", "sentiment": "horizon"},
+    
+    # ============================================
+    # TIER 7: EXPERT OPINIONS & THOUGHT LEADERSHIP
+    # ============================================
+    {"query": "What are leading economists, pension experts, and thought leaders predicting about retirement systems 2024-2025? Include Nobel laureates, IMF economists.", "label": "Expert Opinions: Leading Economists", "sentiment": "horizon"},
+    {"query": "What are investment managers, asset allocators, and sovereign wealth funds saying about pension fund strategies 2024-2025? BlackRock, Vanguard, GIC insights.", "label": "Expert Opinions: Investment Perspectives", "sentiment": "horizon"},
+    {"query": "What are demographic experts and population researchers warning about aging societies and pension sustainability 2024-2025?", "label": "Expert Opinions: Demographics & Aging", "sentiment": "horizon"},
+]
+
+
+
+# Gather knowledge from different time periods
+all_knowledge = []
+all_sources = []
+found_urls = []  # ADD THIS: Track URLs
+
 # -----------------------------
-# Helper functions for tracking previous reports
+# Analyze past two research reports for repeated topics
 # -----------------------------
 import glob
 from collections import Counter
-
 def get_all_research_files(max_n=20):
     files = glob.glob("research_output_2025*.json")
     files += glob.glob("research_output_2024*.json")
@@ -186,6 +252,7 @@ def extract_event_names_list(filepath):
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
+        # Support both 'events' at top-level or inside 'ResearchResponse'
         events = data.get('events')
         if events is None and 'ResearchResponse' in data:
             events = data['ResearchResponse'].get('events', [])
@@ -211,197 +278,65 @@ def extract_event_details(filepath):
         print(f"[PAST REPORTS] Error reading {filepath}: {e}")
         return {}
 
-# Get previous event names for deduplication
+
+# Get previous 2 weeks' event names (for filtering new vs repeated)
 recent_files = get_all_research_files(max_n=2)
 previous_events = set()
 for f in recent_files:
     previous_events |= set(extract_event_names_list(f))
 
+# Define all_files and event_counter for repeated event evolution tracking
 all_files = get_all_research_files(max_n=2)
 all_event_names = []
 for f in all_files:
     all_event_names.extend(extract_event_names_list(f))
 event_counter = Counter(all_event_names)
 
-# Autonomous discovery system - NO predetermined queries
-autonomous_system_prompt = """
-You are an autonomous horizon scanner. Your mission: DISCOVER non-obvious emerging issues that policymakers don't know to look for.
-
-**YOUR AUTONOMOUS DISCOVERY PROCESS:**
-
-1. **Start with a Random Intersection**: Pick an unusual combination of domains that might relate to retirement/social protection
-   - Examples: "psychedelics + financial planning", "quantum computing + pension infrastructure", "longevity research + insurance markets"
-   - Do NOT start with obvious topics like "AI jobs", "aging", "gig economy"
-
-2. **Search and Analyze**: Execute the search and look for:
-   - Anomalies (something that doesn't fit the pattern)
-   - Contradictions (experts disagreeing in surprising ways)
-   - Edge cases (extreme scenarios being discussed)
-   - Cross-pollination (unrelated fields influencing each other)
-
-3. **Follow Breadcrumbs**: Based on what SURPRISES you in the results:
-   - Identify 2-3 unexpected threads or weak signals
-   - Pick the MOST surprising/counter-intuitive thread
-   - Formulate a new search to go deeper
-
-4. **Chain Searches**: Each search should follow from surprises in the previous one
-   - NOT: Search 1: "AI jobs" → Search 2: "automation employment" (TOO PREDICTABLE)
-   - YES: Search 1: "longevity biotech 2024" → (find: CRISPR pricing) → Search 2: "gene therapy insurance models orphan drugs"
-
-5. **Document Trail**: For each search, note:
-   - What you searched for
-   - What surprised you
-   - What breadcrumb you're following next
-   - Why this matters for retirement/social protection
-
-**CRITICAL RULES:**
-- You are AUTONOMOUS - decide your own search path
-- Follow SURPRISES, not confirmations
-- Go deep into rabbit holes, not broad
-- Prefer niche/fringe sources over mainstream
-- Each search should be MORE specific than the last
-- Stop searching obvious policy topics
-
-**CURRENT ITERATION GOAL:** {iteration_goal}
-
-Return your search query, rationale, and what you hope to discover.
-"""
-
-# Initialize discovery tracking
-discovery_log = []
-all_knowledge = []
-all_sources = []
-found_urls = []
-
-# Autonomous discovery loop - 10 iterations
-num_iterations = 10
-
-print(f"\n🤖 Starting {num_iterations} autonomous discovery iterations...")
-print("The AI will self-direct its exploration based on surprises and weak signals.\n")
-
-for iteration in range(1, num_iterations + 1):
-    print(f"\n{'='*80}")
-    print(f"🔄 ITERATION {iteration}/{num_iterations}")
-    print(f"{'='*80}")
-    
-    # Define iteration goal based on stage
-    if iteration == 1:
-        iteration_goal = "Start with an unusual domain intersection that could affect retirement/social protection but isn't obvious. Avoid AI, aging, gig economy, healthcare costs."
-    elif iteration <= 3:
-        iteration_goal = f"Follow the most surprising thread from iteration {iteration-1}. Go deeper into the rabbit hole. What unexpected connection did you find?"
-    elif iteration <= 6:
-        iteration_goal = "You're mid-exploration. What anomaly or contradiction have you discovered? Follow that thread into more niche territory."
-    elif iteration <= 8:
-        iteration_goal = "You're deep in the rabbit hole now. What edge case or extreme scenario is being discussed in specialist communities?"
-    else:
-        iteration_goal = "Final iterations: What's the most counter-intuitive finding you can validate? Look for cross-domain collisions."
-    
-    # Build context from previous discoveries
-    previous_context = ""
-    if discovery_log:
-        previous_context = "\n\n**PREVIOUS DISCOVERIES:**\n"
-        for i, log in enumerate(discovery_log[-3:], 1):  # Last 3 for context
-            previous_context += f"\nIteration {log['iteration']}:\n"
-            previous_context += f"  Searched: {log['query']}\n"
-            previous_context += f"  Surprise: {log['surprise']}\n"
-            previous_context += f"  Next thread: {log['next_thread']}\n"
-    
-    # Ask AI to autonomously decide next search
-    discovery_prompt = f"""
-{autonomous_system_prompt}
-
-{previous_context}
-
-**YOUR TASK FOR THIS ITERATION:**
-Decide your next search query. Explain:
-1. What are you searching for?
-2. Why this query (what breadcrumb from previous searches)?
-3. What might surprise you if you find it?
-
-Then execute the search using the tavily_tool.
-"""
+for idx, kq in enumerate(knowledge_queries, 1):
+    sentiment_icon = {"positive": "✅", "negative": "⚠️", "neutral": "ℹ️", "sentiment": "💭"}.get(kq.get('sentiment', 'neutral'), "ℹ️")
+    print(f"📚 [{idx}/{len(knowledge_queries)}] {sentiment_icon} {kq['label']}")
+    print(f"    Query: {kq['query']}")
     
     try:
-        # Get autonomous decision from AI
-        discovery_decision = agent_executor.invoke({
-            "query": discovery_prompt
-        })
-        
-        output = discovery_decision.get("output", "")
+        knowledge_response = agent_executor.invoke({"query": kq['query']})
+        output = knowledge_response.get("output", "")
         
         if output:
-            # Extract URLs
+            # Extract URLs from output
             urls_in_output = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', output)
             found_urls.extend(urls_in_output)
             
-            # Store in knowledge base
-            all_knowledge.append(f"\n## ITERATION {iteration} - AUTONOMOUS DISCOVERY\n{output}")
+            # Add sentiment label to knowledge
+            sentiment_label = kq.get('sentiment', 'neutral').upper()
+            all_knowledge.append(f"## {kq['label']} [SENTIMENT: {sentiment_label}]{output}")
             all_sources.append(output)
+            print(f"✅ Collected {len(output)} characters, {len(urls_in_output)} URLs")
             
-            print(f"\n📊 Iteration {iteration} Results:")
-            print(f"   Content: {len(output)} characters")
-            print(f"   URLs found: {len(urls_in_output)}")
-            
+            # ADD THIS: Show found URLs
             if urls_in_output:
-                print(f"   Sample URLs:")
-                for url in urls_in_output[:3]:
-                    print(f"      📎 {url[:80]}...")
-            
-            # Extract search query and surprises for logging (simple heuristic)
-            lines = output.split('\n')
-            search_query = "autonomous discovery"
-            surprise_note = "exploring weak signals"
-            next_thread = "following breadcrumbs"
-            
-            # Try to extract actual search terms from output
-            for line in lines[:20]:  # Check first 20 lines
-                if '?' in line or 'search' in line.lower() or 'query' in line.lower():
-                    search_query = line[:150]
-                    break
-            
-            discovery_log.append({
-                'iteration': iteration,
-                'query': search_query,
-                'surprise': surprise_note,
-                'next_thread': next_thread,
-                'url_count': len(urls_in_output),
-                'content_length': len(output)
-            })
-            
-            print(f"   ✅ Discovery logged")
-            
+                for url in urls_in_output[:2]:  # Show first 2
+                    print(f"       📎 {url}")
         else:
-            print(f"   ⚠️ No output from iteration {iteration}")
-            
+            print(f"⚠️ No output received")
     except Exception as e:
-        print(f"   ❌ Error in iteration {iteration}: {e}")
+        print(f"❌ Error: {e}")
         continue
 
-# Summary of autonomous discovery
-print(f"\n{'='*80}")
-print(f"📊 AUTONOMOUS DISCOVERY SUMMARY")
-print(f"{'='*80}")
-print(f"Total iterations: {len(discovery_log)}")
-print(f"Total URLs discovered: {len(found_urls)}")
-print(f"Total knowledge collected: {sum([len(k) for k in all_knowledge])} characters")
-
-print(f"\n🔍 Discovery Trail:")
-for log in discovery_log:
-    print(f"\n  [{log['iteration']}] {log['query'][:100]}...")
-    print(f"      → {log['url_count']} URLs, {log['content_length']} chars")
-
-# Track URL frequency
+# ADD THIS: Track URL frequency (hot topics = URLs appearing in multiple searches)
+from collections import Counter
 url_frequency = Counter(found_urls)
 unique_urls = list(dict.fromkeys(found_urls))
+
+# Identify "hot topics" - URLs cited by multiple knowledge queries
 hot_topic_urls = {url: count for url, count in url_frequency.items() if count >= 2}
 
-print(f"\n📊 URL Analysis:")
-print(f"   Unique URLs: {len(unique_urls)}")
-print(f"   Recurring URLs (≥2 mentions): {len(hot_topic_urls)}")
+print(f"📊 Total unique URLs collected: {len(unique_urls)}")
+print(f"🔥 Hot topic URLs (cited ≥2 times): {len(hot_topic_urls)}")
 
 # Combine all knowledge
-combined_knowledge = "=" * 80 + "\n" + "".join(all_knowledge)
-print(f"\n✅ Autonomous discovery complete. Total knowledge: {len(combined_knowledge)} characters")
+combined_knowledge = "" + "="*80 + "".join(all_knowledge)
+
+print(f"✅ Knowledge building complete. Total knowledge: {len(combined_knowledge)} characters")
 
 # Show collected URLs
 if unique_urls:
@@ -420,23 +355,24 @@ print("" + "="*80)
 print("🔍 DEBUGGING: URL-TO-CONTENT MAPPING")
 print("="*80)
 
-# Create a mapping of URLs to their content from discovery iterations
+# Create a mapping of URLs to their content
 url_to_content = {}
-for idx, (source, log) in enumerate(zip(all_sources, discovery_log), 1):
-    urls_in_section = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', source)
+for idx, kq in enumerate(knowledge_queries[:9], 1):
+    output = all_sources[idx-1] if idx-1 < len(all_sources) else ""
+    urls_in_section = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', output)
     
     for url in urls_in_section:
         if url not in url_to_content:
             # Extract ~200 chars of context around the URL
-            url_pos = source.find(url)
+            url_pos = output.find(url)
             context_start = max(0, url_pos - 100)
-            context_end = min(len(source), url_pos + len(url) + 100)
-            context = source[context_start:context_end]
+            context_end = min(len(output), url_pos + len(url) + 100)
+            context = output[context_start:context_end]
             
             url_to_content[url] = {
-                'topic': f"Discovery Iteration {log['iteration']}",
+                'topic': kq['label'],
                 'context': context,
-                'full_section': source
+                'full_section': output
             }
 
 print(f"📊 Mapped {len(url_to_content)} unique URLs to content")
@@ -457,41 +393,18 @@ if hot_topic_urls:
         if url in url_to_content:
             print(f"        Topic: {url_to_content[url]['topic']}")
 
-# Define the prediction query with URLs (Improved for horizon scanning)
+# Define the prediction query with URLs (Improved for direct action)
 prediction_query = f"""
-**HORIZON SCANNING: NON-OBVIOUS EMERGING ISSUES ONLY**
+**ANALYZE & FORECAST**: Identify 3-5 high-priority, non-obvious emerging issues impacting CPF AND/OR its CPF members (2026-2035).
+When searching for information on mainstream CPF issues, prioritize and include results from informal channels (e.g., forums, social media, community blogs, public comments) in addition to mainstream news sources. Highlight early warning signals, sentiment, and public concerns from these informal sources.
 
-From the gathered intelligence, identify 3-5 emerging issues that meet ALL these criteria:
-1. ✅ Would SURPRISE an experienced policymaker (not routine concerns)
-2. ✅ NOT widely covered in policy circles yet
-3. ✅ Challenges fundamental assumptions about retirement/social protection
-4. ✅ Evidence from non-mainstream sources (niche research, fringe communities, cross-sector data)
 
-🚫 **DO NOT INCLUDE** (these are TOO OBVIOUS):
-- Gig economy growth
-- AI/automation job displacement  
-- Aging demographics
-- Healthcare cost rises
-- Housing affordability
-- Fintech adoption
-- Income inequality
-- Climate impacts
-- Geopolitical tensions
-- Pension sustainability
+Order the final output by Urgency × Impact × Novelty score.
 
-✅ **LOOK FOR INSTEAD:**
-- Second-order effects (e.g., AI-generated scams targeting retirees)
-- Paradigm shifts (e.g., Web3 replacing traditional employment)
-- Hidden vulnerabilities (e.g., infrastructure dependencies)
-- Unexpected intersections (e.g., psychedelic therapy + retirement patterns)
-- Fringe movements becoming mainstream (e.g., biohacking longevity)
-
-**THINK:** What blind spots exist? What's happening at the edges that could cascade?
-
-### GATHERED GLOBAL INTELLIGENCE:
+### GATHERED KNOWLEDGE:
 {combined_knowledge}
 
-### AVAILABLE SOURCE URLS:
+### AVAILABLE SOURCE URLS WITH CONTEXT (USE THESE EXACT FULL URLs):
 {chr(10).join([f"- {url} (Topic: {url_to_content[url]['topic']})" for url in unique_urls[:50] if url in url_to_content])}
 
 """
@@ -505,31 +418,25 @@ print("🔮 STAGE 2: TREND ANALYSIS & PREDICTIVE SYNTHESIS")
 print("="*80)
 
 prediction_system_prompt = f"""
-You are an expert horizon scanner conducting strategic foresight for Singapore's Central Provident Fund Board (CPFB).
-CRITICAL: Find NON-OBVIOUS, SURPRISING, UNDER-THE-RADAR issues CPF policymakers are NOT already tracking.
+You are a strategic foresight analyst for Singapore’s CPF system, advising senior policymakers and monitoring issues that could affect up to 4.4 million CPF members.
 
-**NOVELTY FILTER (must pass 4/6):**
-□ Would surprise experienced policymakers
-□ NOT in standard policy briefs
-□ Challenges core assumptions
-□ Connects unrelated domains
-□ Evidence from non-obvious sources
-□ Invisible crisis brewing for 5–10 years
+TASK: Use the provided data to anticipate **CPF-related risks, opportunities, and structural shifts** for 2024–2025, with special attention to both mainstream (established) and emerging issues.
 
-Examples of “non-obvious” signals:
-- Early cultural or behavioural shifts from niche online communities.
-- Financial experiments in Asia affecting social safety nets.
-- Longevity, cognitive health, or microinsurance innovations.
-- Digital tools changing savings behaviour or trust in institutions.
+**MANDATORY CHECK FOR ESTABLISHED ISSUES:**
+- Always check for and include established (mainstream) issues (e.g., cost of living, healthcare, CPF policy changes) in your analysis, even if they are recurring or well-known.
+- For each established issue, surface and highlight the latest new developments, sentiment shifts, or weak signals from informal channels (e.g., Reddit, forums, social media, community blogs, public comments).
+- When citing evidence for established issues, prioritize and include informal sources (such as Reddit articles or forum posts) if available, and cite them directly in the event's source field.
+- Clearly distinguish between established issues and new/emerging issues in your output.
 
 **PRIORITIZE:**
-Highlight how informal perspectives reveal emerging risks, gaps, or public concerns that policy has not yet addressed.
+- For mainstream problems, focus your analysis on evidence, sentiment, and early warning signals from informal channels, not just official or mainstream news.
+- Highlight how informal perspectives may reveal emerging risks, gaps, or public concerns that are not yet fully addressed by policy.
+- Also include non-mainstream, weak-signal friction, and established issues only if they show novel urgency or character.
 
-**Definition:**
-An emerging issue is a new, weak-signal, or rapidly developing trend with limited but credible evidence, not yet widely reported.
+**Definition:** An emerging issue is a new, weak-signal, or rapidly developing trend with limited but credible evidence, not yet widely reported or discussed.
 
 Current date: {current_datetime_str}
-Intelligence horizon: STRICTLY 2024–2025 ONLY.
+Intelligence horizon: STRICTLY 2024-2025 ONLY (ignore pre-2024 articles)
 
 ----------
 
@@ -662,60 +569,19 @@ try:
         print("   Using raw output as JSON")
         json_text = output_text
 
-    # Save raw output for debugging
-    debug_filename = f"debug_output_{now.strftime('%Y%m%d_%H%M%S')}.txt"
-    with open(debug_filename, 'w', encoding='utf-8') as f:
-        f.write("="*80 + "\n")
-        f.write("RAW LLM OUTPUT:\n")
-        f.write("="*80 + "\n")
-        f.write(output_text)
-        f.write("\n\n" + "="*80 + "\n")
-        f.write("EXTRACTED JSON:\n")
-        f.write("="*80 + "\n")
-        f.write(json_text)
-    print(f"   💾 Debug output saved to: {debug_filename}")
-
     # Handle case where LLM wraps response in {"ResearchResponse": {...}}
     import json
-    try:
-        parsed_json = json.loads(json_text)
-        print(f"   ✅ JSON parsed successfully")
-        print(f"   Top-level keys: {list(parsed_json.keys())}")
+    parsed_json = json.loads(json_text)
 
-        # If wrapped, unwrap it
-        if "ResearchResponse" in parsed_json and isinstance(parsed_json, dict):
-            print("   ⚠️ Unwrapping nested ResearchResponse")
-            json_text = json.dumps(parsed_json["ResearchResponse"])
-    except json.JSONDecodeError as e:
-        print(f"   ❌ JSON parsing failed: {e}")
-        print(f"   First 500 chars of json_text: {json_text[:500]}")
-        raise
+    print(f"   ✅ JSON parsed successfully")
+    print(f"   Top-level keys: {list(parsed_json.keys())}")
 
-    try:
-        structured_response = parser.parse(json_text)
-    except Exception as parse_error:
-        print(f"   ❌ Pydantic parsing failed: {parse_error}")
-        print(f"   Attempting manual validation...")
-        
-        # Try to identify what's wrong
-        parsed_data = json.loads(json_text) if isinstance(json_text, str) else json_text
-        print(f"   Required fields check:")
-        print(f"      - topic: {'✅' if 'topic' in parsed_data else '❌'}")
-        print(f"      - summary: {'✅' if 'summary' in parsed_data else '❌'}")
-        print(f"      - source: {'✅' if 'source' in parsed_data else '❌'}")
-        print(f"      - tools_used: {'✅' if 'tools_used' in parsed_data else '❌'}")
-        print(f"      - events: {'✅' if 'events' in parsed_data else '❌'}")
-        
-        if 'events' in parsed_data and parsed_data['events']:
-            print(f"   First event check:")
-            first_event = parsed_data['events'][0]
-            required_event_fields = ['event', 'description', 'date', 'actors', 'category', 
-                                     'impact', 'scenario', 'source', 'relevance', 
-                                     'confidence', 'policy_intervention', 'signal_strength']
-            for field in required_event_fields:
-                print(f"      - {field}: {'✅' if field in first_event else '❌'}")
-        
-        raise
+    # If wrapped, unwrap it
+    if "ResearchResponse" in parsed_json and isinstance(parsed_json, dict):
+        print("   ⚠️ Unwrapping nested ResearchResponse")
+        json_text = json.dumps(parsed_json["ResearchResponse"])
+
+    structured_response = parser.parse(json_text)
 
 
     # --- Filter and separate repeated vs new events using partial/fuzzy matching ---
