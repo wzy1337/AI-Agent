@@ -6,4 +6,4 @@ langchain-anthropic
 python-dotenv
 pydantic
 duckduckgo-search
-tavily-python
+python-dateutil

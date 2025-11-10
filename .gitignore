@@ -3,3 +3,4 @@ venv/
 sample.env
 *.txt
 *json
+*.md
