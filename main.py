@@ -718,6 +718,12 @@ for f in all_files:
     all_event_names.extend(extract_event_names_list(f))
 event_counter = Counter(all_event_names)
 
+# Gather knowledge from different time periods
+all_knowledge = []
+all_sources = []
+found_urls = []  # Track URLs
+url_metadata_dates = {}  # NEW: Track published dates from Tavily metadata
+
 for idx, kq in enumerate(knowledge_queries, 1):
     sentiment_icon = {"positive": "✅", "negative": "⚠️", "neutral": "ℹ️", "sentiment": "💭"}.get(kq.get('sentiment', 'neutral'), "ℹ️")
     print(f"📚 [{idx}/{len(knowledge_queries)}] {sentiment_icon} {kq['label']}")
@@ -732,6 +738,22 @@ for idx, kq in enumerate(knowledge_queries, 1):
             urls_in_output = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', output)
             found_urls.extend(urls_in_output)
             
+            # NEW: Extract published dates from Tavily metadata
+            output_metadata = extract_dates_from_search_output(output)
+            url_metadata_dates.update(output_metadata)
+            
+            # FILTER URLs: Only keep those from 2024 onwards (using metadata when available)
+            urls_before_filter = len(urls_in_output)
+            filtered_urls, date_info = filter_urls_by_date(
+                urls_in_output, 
+                min_year=2024, 
+                verbose=False,
+                url_metadata=output_metadata
+            )
+            urls_after_filter = len(filtered_urls)
+            
+            found_urls.extend(filtered_urls)
+            
             # Add sentiment label to knowledge
             sentiment_label = kq.get('sentiment', 'neutral').upper()
             all_knowledge.append(f"## {kq['label']} [SENTIMENT: {sentiment_label}]{output}")
@@ -742,6 +764,20 @@ for idx, kq in enumerate(knowledge_queries, 1):
             if urls_in_output:
                 for url in urls_in_output[:2]:  # Show first 2
                     print(f"       📎 {url}")
+            # Show filtering results
+            filtered_count = urls_before_filter - urls_after_filter
+            metadata_count = sum(1 for url in filtered_urls if url in output_metadata)
+            
+            if filtered_count > 0:
+                print(f"✅ Collected {len(output)} characters, {urls_after_filter} URLs (🗑️ filtered {filtered_count} pre-2024, 📅 {metadata_count} with metadata)")
+            else:
+                print(f"✅ Collected {len(output)} characters, {urls_after_filter} URLs (📅 {metadata_count} with metadata)")
+            
+            # Show found URLs
+            if filtered_urls:
+                for url in filtered_urls[:2]:  # Show first 2
+                    date_source = date_info.get(url, 'unknown')
+                    print(f"       📎 {url} [{date_source}]")
         else:
             print(f"⚠️ No output received")
     except Exception as e:
@@ -758,6 +794,55 @@ hot_topic_urls = {url: count for url, count in url_frequency.items() if count >=
 
 print(f"📊 Total unique URLs collected: {len(unique_urls)}")
 print(f"🔥 Hot topic URLs (cited ≥2 times): {len(hot_topic_urls)}")
+
+# ADD THIS: Detailed date filtering report
+print("" + "="*80)
+print("📅 URL DATE FILTERING REPORT")
+print("="*80)
+urls_with_metadata = 0
+urls_with_url_dates = 0
+urls_without_dates = 0
+year_distribution = Counter()
+
+for url in unique_urls:
+    # Check if we have metadata date
+    if url in url_metadata_dates:
+        urls_with_metadata += 1
+        year = url_metadata_dates[url].year
+        year_distribution[year] += 1
+    else:
+        # Check URL pattern
+        year = extract_year_from_url(url)
+        if year:
+            urls_with_url_dates += 1
+            year_distribution[year] += 1
+        else:
+            urls_without_dates += 1
+
+total_with_dates = urls_with_metadata + urls_with_url_dates
+
+print(f"📊 Date Detection Summary:")
+print(f"   ✅ URLs with metadata dates (from Tavily): {urls_with_metadata}")
+print(f"   ✅ URLs with dates in URL pattern: {urls_with_url_dates}")
+print(f"   ⚠️ URLs without detectable dates: {urls_without_dates}")
+print(f"   📈 Total with dates: {total_with_dates}/{len(unique_urls)} ({100*total_with_dates/len(unique_urls):.1f}%)")
+
+print(f"\n📊 Year Distribution:")
+for year in sorted(year_distribution.keys(), reverse=True):
+    bar = "█" * min(50, year_distribution[year])
+    print(f"   {year}: {bar} ({year_distribution[year]} URLs)")
+
+if urls_without_dates > 0:
+    print(f"\n⚠️ WARNING: {urls_without_dates} URLs have no detectable date")
+    print(f"   These are INCLUDED (benefit of doubt) but should be manually verified:")
+    
+    # Show sample URLs without dates
+    no_date_urls = [url for url in unique_urls[:50] 
+                    if url not in url_metadata_dates and extract_year_from_url(url) is None]
+    for url in no_date_urls[:5]:
+        print(f"   - {url}")
+    if len(no_date_urls) > 5:
+        print(f"   ... and {len(no_date_urls) - 5} more")
 
 # Combine all knowledge
 combined_knowledge = "" + "="*80 + "".join(all_knowledge)
@@ -822,6 +907,7 @@ if hot_topic_urls:
 # Define the prediction query with URLs (Improved for direct action)
 prediction_query = f"""
 **ANALYZE & FORECAST**: Identify 3-5 high-priority, non-obvious emerging issues impacting CPF AND/OR its CPF members (2026-2035).
+**ANALYZE & FORECAST**: Identify 10-15 high-priority, non-obvious emerging issues impacting CPF AND/OR its CPF members (2026-2035).
 When searching for information on mainstream CPF issues, prioritize and include results from informal channels (e.g., forums, social media, community blogs, public comments) in addition to mainstream news sources. Highlight early warning signals, sentiment, and public concerns from these informal sources.
 
 
@@ -837,6 +923,7 @@ Order the final output by Urgency × Impact × Novelty score.
 
 
 # -----------------------------
+# ------------------------------------------
 # STAGE 2: Trend Analysis & Prediction
 # -----------------------------
 print("" + "="*80)
@@ -847,6 +934,7 @@ prediction_system_prompt = f"""
 You are a strategic foresight analyst for Singapore’s CPF system, advising senior policymakers and monitoring issues that could affect up to 4.4 million CPF members.
 
 TASK: Use the provided data to anticipate **CPF-related risks, opportunities, and structural shifts** for 2024–2025, with special attention to both mainstream (established) and emerging issues.
+TASK: Use the provided data to anticipate **CPF-related risks, opportunities, and structural shifts** for {one_year_ago_int} to {current_datetime_str}, with special attention to both mainstream (established) and emerging issues.
 
 **MANDATORY CHECK FOR ESTABLISHED ISSUES:**
 - Always check for and include established (mainstream) issues (e.g., cost of living, healthcare, CPF policy changes) in your analysis, even if they are recurring or well-known.
