@@ -933,7 +933,6 @@ print("="*80)
 prediction_system_prompt = f"""
 You are a strategic foresight analyst for Singapore’s CPF system, advising senior policymakers and monitoring issues that could affect up to 4.4 million CPF members.
 
-TASK: Use the provided data to anticipate **CPF-related risks, opportunities, and structural shifts** for 2024–2025, with special attention to both mainstream (established) and emerging issues.
 TASK: Use the provided data to anticipate **CPF-related risks, opportunities, and structural shifts** for {one_year_ago_int} to {current_datetime_str}, with special attention to both mainstream (established) and emerging issues.
 
 **MANDATORY CHECK FOR ESTABLISHED ISSUES:**
@@ -1041,274 +1040,316 @@ prediction_prompt_template = ChatPromptTemplate.from_messages([
 print(f"🧠 Analyzing trends and generating predictions...")
 print(f"   Input size: {len(combined_knowledge)} characters")
 
-try:
+# Retry mechanism for LLM parsing failures
+MAX_RETRIES = 3
+retry_count = 0
+structured_response = None
+last_error = None
 
+while retry_count < MAX_RETRIES and structured_response is None:
+    try:
+        if retry_count > 0:
+            print(f"\n🔄 Retry attempt {retry_count}/{MAX_RETRIES - 1}")
+            print(f"   Previous error: {last_error}")
 
-    # Format the prediction prompt
-    formatted_messages = prediction_prompt_template.format_messages(query=prediction_query)
+        # Format the prediction prompt
+        formatted_messages = prediction_prompt_template.format_messages(query=prediction_query)
 
-    # DEBUG: Print the full formatted prompt being sent to the LLM
-    print("\n" + "="*80)
-    print("📝 DEBUG: FULL FORMATTED PROMPT TO LLM (Stage 2)")
-    print("="*80)
-    for msg in formatted_messages:
-        print(f"[{msg.type.upper()}] {msg.content}\n")
-    print("="*80 + "\n")
+        # DEBUG: Print the full formatted prompt being sent to the LLM (only on first attempt)
+        if retry_count == 0:
+            print("\n" + "="*80)
+            print("📝 DEBUG: FULL FORMATTED PROMPT TO LLM (Stage 2)")
+            print("="*80)
+            for msg in formatted_messages:
+                print(f"[{msg.type.upper()}] {msg.content}\n")
+            print("="*80 + "\n")
 
-    # Get prediction from LLM
-    prediction_output = llm.invoke(formatted_messages)
-    output_text = prediction_output.content
+        # Get prediction from LLM
+        prediction_output = llm.invoke(formatted_messages)
+        output_text = prediction_output.content
 
-    # DEBUG: Print the raw LLM output before parsing
-    print("\n" + "="*80)
-    print("📝 DEBUG: RAW LLM OUTPUT (Stage 2)")
-    print("="*80)
-    print(output_text[:2000])  # Print up to 2000 chars for readability
-    print("\n" + "="*80)
-
-    print(f"✅ Prediction generated: {len(output_text)} characters")
-
-    # Parse the response
-    print("" + "="*80)
-    print("📊 PARSING FINAL PREDICTION")
-    print("="*80)
-
-    # Extract JSON from markdown code block if present
-    if "```json" in output_text:
-        print("   Found markdown JSON block, extracting...")
-        start = output_text.find("```json") + 7
-        end = output_text.find("```", start)
-        json_text = output_text[start:end].strip()
-    else:
-        print("   Using raw output as JSON")
-        json_text = output_text
-
-    # Handle case where LLM wraps response in {"ResearchResponse": {...}}
-    import json
-    parsed_json = json.loads(json_text)
-
-    print(f"   ✅ JSON parsed successfully")
-    print(f"   Top-level keys: {list(parsed_json.keys())}")
-
-    # If wrapped, unwrap it
-    if "ResearchResponse" in parsed_json and isinstance(parsed_json, dict):
-        print("   ⚠️ Unwrapping nested ResearchResponse")
-        json_text = json.dumps(parsed_json["ResearchResponse"])
-
-    structured_response = parser.parse(json_text)
-
-
-    # --- Filter and separate repeated vs new events using partial/fuzzy matching ---
-    import difflib
-    all_events = structured_response.events
-    def is_repeated_event(event_name, previous_event_names, threshold=0.7):
-        # Use difflib to find close matches
-        for prev in previous_event_names:
-            ratio = difflib.SequenceMatcher(None, event_name.lower(), prev.lower()).ratio()
-            if ratio >= threshold:
-                return True
-        return False
-
-    repeated_events = [e for e in all_events if is_repeated_event(e.event, previous_events)]
-    new_events = [e for e in all_events if not is_repeated_event(e.event, previous_events)]
-
-    print("\n==============================")
-    if repeated_events:
-        print(f"🔁 Repeated topics from previous reports (not included in main output):")
-        for e in repeated_events:
-            print(f"  - {e.event}")
-    else:
-        print("✅ All topics are new compared to the last two reports.")
-    print("==============================\n")
-
-    # For all events, if signal_strength is 'Established', extract and highlight new developments from informal channels
-    for event in all_events:
-        if hasattr(event, 'signal_strength') and event.signal_strength and 'established' in event.signal_strength.lower():
-            # Try to extract new developments from informal sources in the description/impact fields
-            informal_texts = []
-            for field in [event.description, event.impact]:
-                # Look for sentences mentioning Reddit, forum, social media, blog, or similar
-                matches = re.findall(r'([^.]*?(Reddit|forum|social media|blog|community|Telegram|Facebook|WhatsApp|WeChat|Discord|X/Twitter)[^.]*\.)', field, re.IGNORECASE)
-                informal_texts.extend([m[0].strip() for m in matches])
-            if informal_texts:
-                event.informal_insights = ' '.join(informal_texts)
-            else:
-                event.informal_insights = None
-
-            # --- Ensure Reddit URLs are cited in the source field if referenced ---
-            # Find all Reddit URLs in unique_urls
-            reddit_urls = [url for url in unique_urls if 'reddit.com' in url]
-            # If any Reddit URL is referenced in the event's informal_insights or description, add to source if not present
-            if reddit_urls:
-                # Get current sources as a set
-                current_sources = set([s.strip() for s in event.source.split(',')]) if event.source else set()
-                # Check if any Reddit URL is referenced in the event's text
-                event_text = (event.informal_insights or '') + ' ' + (event.description or '')
-                for rurl in reddit_urls:
-                    if rurl in event_text and rurl not in current_sources:
-                        current_sources.add(rurl)
-                # Update event.source with all sources, comma-separated
-                event.source = ', '.join(current_sources)
-
-    # Only include new events in the main output
-    structured_response.events = new_events
-
-    # Add repeated events to a dedicated field for explicit highlighting in the report, with recurrence count and evolution summary
-    if repeated_events:
-        # Gather evolution history for each repeated event
-        evolution_summaries = []
-        for e in repeated_events:
-            event_name = e.event
-            # Collect descriptions from all previous reports (most recent first)
-            desc_history = []
-            for f in all_files:
-                details = extract_event_details(f)
-                if event_name in details:
-                    desc_history.append(details[event_name])
-            # Only keep up to 3 most recent descriptions for brevity
-            desc_history = desc_history[:3]
-            summary = f"{event_name} (seen {event_counter[event_name]} times)\n"
-            for i, desc in enumerate(desc_history, 1):
-                summary += f"  [Prev #{i}] {desc[:200].replace('\n',' ')}{'...' if len(desc)>200 else ''}\n"
-            evolution_summaries.append(summary.strip())
-        structured_response.repeated_events = evolution_summaries
-    else:
-        structured_response.repeated_events = []
-
-    # Validate URLs in sources
-    print("" + "="*80)
-    print("🔗 VALIDATING SOURCE URLS - 3+ URLs REQUIRED PER EVENT")
-    print("="*80)
-
-    validation_failed = False
-    for idx, event in enumerate(structured_response.events, 1):
-        print(f"📌 Event {idx}: {event.event}")
-        
-        if event.source:
-            sources = [s.strip() for s in event.source.split(',')]
-            url_count = len(sources)
-            date_count = len(event.date)
-            
-            # Count URLs that meet criteria
-            valid_url_count = 0
-            for source in sources:
-                # Check if it's a full URL
-                if 'http' in source:
-                    path_count = source.count('/')
-                    if path_count > 3:  # Has article path
-                        valid_url_count += 1
-                        print(f"   ✅ Full URL: {source[:80]}...")
-                    else:
-                        print(f"   ⚠️ Generic domain (no article path): {source}")
-                else:
-                    print(f"   ❌ Not a URL: {source}")
-            
-            # Check if event meets 3+ URL requirement
-            if valid_url_count < 3:
-                print(f"   🚨🚨🚨 VALIDATION FAILED: Only {valid_url_count} valid URLs (need 3+) 🚨🚨🚨")
-                validation_failed = True
-            else:
-                print(f"   ✅ PASSED: {valid_url_count} valid URLs")
-            
-            # Validate dates match URLs
-            print(f"   📅 Date Validation:")
-            print(f"      URLs: {url_count}, Dates: {date_count}")
-            
-            if date_count != url_count:
-                print(f"      🚨🚨🚨 VALIDATION FAILED: Date count ({date_count}) doesn't match URL count ({url_count}) 🚨🚨🚨")
-                validation_failed = True
-            else:
-                print(f"      ✅ PASSED: Date count matches URL count")
-                
-            # Check date format
-            for i, date_str in enumerate(event.date, 1):
-                if '/' in date_str and len(date_str) >= 8:  # Proper date format like DD/MM/YYYY
-                    print(f"      ✅ Date {i}: {date_str}")
-                else:
-                    print(f"      ⚠️ Date {i}: {date_str} (Generic - should be DD/MM/YYYY)")
-                    
-        else:
-            print(f"   ❌ No source provided")
-            print(f"   🚨🚨🚨 VALIDATION FAILED: No URLs provided 🚨🚨🚨")
-            validation_failed = True
-    
-    if validation_failed:
-        print("" + "="*80)
-        print("❌ OVERALL VALIDATION: FAILED - Some events have insufficient URLs")
+        # DEBUG: Print the raw LLM output before parsing
+        print("\n" + "="*80)
+        print(f"📝 DEBUG: RAW LLM OUTPUT (Stage 2) - Attempt {retry_count + 1}")
         print("="*80)
-    else:
+        print(output_text[:2000])  # Print up to 2000 chars for readability
+        print("\n" + "="*80)
+
+
+        # Parse the response
         print("" + "="*80)
-        print("✅ OVERALL VALIDATION: PASSED - All events have 3+ URLs")
+        print(f"📊 PARSING FINAL PREDICTION - Attempt {retry_count + 1}")
         print("="*80)
 
-    # DETAILED URL USAGE ANALYSIS
-    print("" + "="*80)
-    print("🔬 DETAILED URL USAGE ANALYSIS")
-    print("="*80)
-
-    for idx, event in enumerate(structured_response.events, 1):
-        print(f"📌 Event {idx}: {event.event}")
-        print(f"   Category: {event.category}")
-        
-        if event.source:
-            sources = [s.strip() for s in event.source.split(',')]
-            print(f"   Total URLs cited: {len(sources)}")
-            
-            for i, source in enumerate(sources, 1):
-                # Check if it's a full URL
-                if 'http' in source:
-                    path_count = source.count('/')
-                    
-                    # Check if URL was in our collected list
-                    is_from_search = source in unique_urls
-                    
-                    if path_count > 3:  # Has article path
-                        status = "✅ Valid" if is_from_search else "⚠️ Valid but not from search"
-                        print(f"   {i}. {status}: {source[:70]}...")
-                        
-                        # Show which topic this URL came from
-                        if source in url_to_content:
-                            print(f"      📚 From: {url_to_content[source]['topic']}")
-                    else:
-                        print(f"   {i}. ⚠️ Generic domain: {source}")
-                else:
-                    print(f"   {i}. ❌ Not a URL: {source}")
-            
-            # Analyze if event needs more sources
-            event_word_count = len(event.description.split()) + len(event.impact.split())
-            recommended_sources = max(2, min(5, event_word_count // 150))
-            
-            if len(sources) < recommended_sources:
-                print(f"   ⚠️ RECOMMENDATION: Add {recommended_sources - len(sources)} more sources")
-                print(f"      (Event has {event_word_count} words, recommending {recommended_sources} sources)")
+        # Extract JSON from markdown code block if present
+        if "```json" in output_text:
+            print("   Found markdown JSON block, extracting...")
+            start = output_text.find("```json") + 7
+            end = output_text.find("```", start)
+            json_text = output_text[start:end].strip()
         else:
-            print(f"   ❌ NO SOURCES PROVIDED")
-    
+            print("   Using raw output as JSON")
+            json_text = output_text
 
-    print("" + "="*80)
-    print("✅ FINAL PREDICTIVE INTELLIGENCE REPORT")
-    print("="*80)
-    # Highlight repeated topics if present
-    if structured_response.repeated_events and len(structured_response.repeated_events) > 0:
+        # Handle case where LLM wraps response in {"ResearchResponse": {...}}
+        import json
+        parsed_json = json.loads(json_text)
+
+        print(f"   ✅ JSON parsed successfully")
+        print(f"   Top-level keys: {list(parsed_json.keys())}")
+
+        # If wrapped, unwrap it
+        if "ResearchResponse" in parsed_json and isinstance(parsed_json, dict):
+            print("   ⚠️ Unwrapping nested ResearchResponse")
+            json_text = json.dumps(parsed_json["ResearchResponse"])
+
+        structured_response = parser.parse(json_text)
+        print(f"✅ Pydantic validation successful on attempt {retry_count + 1}")
+        
+    except Exception as e:
+        retry_count += 1
+        last_error = str(e)
+        print(f"❌ Parsing failed on attempt {retry_count}: {e}")
+        
+        if retry_count >= MAX_RETRIES:
+            print(f"\n💥 FATAL: Failed to parse after {MAX_RETRIES} attempts")
+            print(f"   Last error: {last_error}")
+            raise
+        else:
+            print(f"   Retrying with fresh LLM call...")
+            import time
+            time.sleep(2)  # Brief pause before retry
+
+# If we get here, parsing succeeded
+if __name__ == '__main__':
+    try:
+        # --- Filter and separate repeated vs new events using partial/fuzzy matching ---
+        import difflib
+        all_events = structured_response.events
+        def is_repeated_event(event_name, previous_event_names, threshold=0.7):
+            # Use difflib to find close matches
+            for prev in previous_event_names:
+                ratio = difflib.SequenceMatcher(None, event_name.lower(), prev.lower()).ratio()
+                if ratio >= threshold:
+                    return True
+            return False
+
+        repeated_events = [e for e in all_events if is_repeated_event(e.event, previous_events)]
+        new_events = [e for e in all_events if not is_repeated_event(e.event, previous_events)]
+
         print("\n==============================")
-        print("🔁 HIGHLIGHTED REPEATED TOPICS (with evolution summary):")
-        for summary in structured_response.repeated_events:
-            print(summary)
+        if repeated_events:
+            print(f"🔁 Repeated topics from previous reports (not included in main output):")
+            for e in repeated_events:
+                print(f"  - {e.event}")
+        else:
+            print("✅ All topics are new compared to the last two reports.")
         print("==============================\n")
-    # Output JSON with repeated_events as a top-level field
-    output_json = structured_response.model_dump()
-    # Ensure repeated_events is always present in the output JSON
-    if not output_json.get('repeated_events'):
-        output_json['repeated_events'] = []
-    import json as _json
-    print(_json.dumps(output_json, indent=2, ensure_ascii=False))
 
-    # Save to file (with repeated events highlighted at the top of the file)
-    timestamp = now.strftime("%Y%m%d_%H%M%S")
-    filename = f"research_output_{timestamp}.json"
-    with open(filename, 'w', encoding='utf-8') as f:
-        f.write(_json.dumps(output_json, indent=2, ensure_ascii=False))
-    print(f"💾 Saved to: {filename}")
+        # For all events, if signal_strength is 'Established', extract and highlight new developments from informal channels
+        for event in all_events:
+            if hasattr(event, 'signal_strength') and event.signal_strength and 'established' in event.signal_strength.lower():
+                # Try to extract new developments from informal sources in the description/impact fields
+                informal_texts = []
+                for field in [event.description, event.impact]:
+                    # Look for sentences mentioning Reddit, forum, social media, blog, or similar
+                    matches = re.findall(r'([^.]*?(Reddit|forum|social media|blog|community|Telegram|Facebook|WhatsApp|WeChat|Discord|X/Twitter)[^.]*\.)', field, re.IGNORECASE)
+                    informal_texts.extend([m[0].strip() for m in matches])
+                if informal_texts:
+                    event.informal_insights = ' '.join(informal_texts)
+                else:
+                    event.informal_insights = None
+
+                # --- Ensure Reddit URLs are cited in the source field if referenced ---
+                # Find all Reddit URLs in unique_urls
+                reddit_urls = [url for url in unique_urls if 'reddit.com' in url]
+                # If any Reddit URL is referenced in the event's informal_insights or description, add to source if not present
+                if reddit_urls:
+                    # Get current sources as a set (handle both list and string)
+                    if isinstance(event.source, list):
+                        current_sources = set(event.source)
+                    else:
+                        current_sources = set([s.strip() for s in event.source.split(',')]) if event.source else set()
+                
+                    # Check if any Reddit URL is referenced in the event's text
+                    event_text = (event.informal_insights or '') + ' ' + (event.description or '')
+                    for rurl in reddit_urls:
+                        if rurl in event_text and rurl not in current_sources:
+                            current_sources.add(rurl)
+                
+                    # Update event.source - keep as list
+                    event.source = list(current_sources)
+
+        # Only include new events in the main output
+        structured_response.events = new_events
+
+        # Add repeated events to a dedicated field for explicit highlighting in the report, with recurrence count and evolution summary
+        if repeated_events:
+            # Gather evolution history for each repeated event
+            evolution_summaries = []
+            for e in repeated_events:
+                event_name = e.event
+                # Collect descriptions from all previous reports (most recent first)
+                desc_history = []
+                for f in all_files:
+                    details = extract_event_details(f)
+                    if event_name in details:
+                        desc_history.append(details[event_name])
+                # Only keep up to 3 most recent descriptions for brevity
+                desc_history = desc_history[:3]
+                summary = f"{event_name} (seen {event_counter[event_name]} times)\n"
+                for i, desc in enumerate(desc_history, 1):
+                    summary += f"  [Prev #{i}] {desc[:200].replace('\n',' ')}{'...' if len(desc)>200 else ''}\n"
+                evolution_summaries.append(summary.strip())
+            structured_response.repeated_events = evolution_summaries
+        else:
+            structured_response.repeated_events = []
+
+        # Validate URLs in sources
+        print("" + "="*80)
+        print("🔗 VALIDATING SOURCE URLS - 3+ URLs REQUIRED PER EVENT")
+        print("="*80)
+
+        validation_failed = False
+        total_pre_2024_urls = 0
+    
+        for idx, event in enumerate(structured_response.events, 1):
+            print(f"📌 Event {idx}: {event.event}")
+        
+            if event.source:
+                # Handle both list and string formats
+                sources = event.source if isinstance(event.source, list) else [s.strip() for s in event.source.split(',')]
+                url_count = len(sources)
+                date_count = len(event.date)
+            
+                # Count URLs that meet criteria
+                valid_url_count = 0
+                pre_2024_count = 0
+            
+                for source in sources:
+                    # Check if it's a full URL
+                    if 'http' in source:
+                        path_count = source.count('/')
+                    
+                        # CHECK DATE: Is this URL from 2024 onwards? (use metadata if available)
+                        metadata_date = url_metadata_dates.get(source)
+                        if not is_url_from_2024_onwards(source, verbose=False, metadata_date=metadata_date):
+                            pre_2024_count += 1
+                            total_pre_2024_urls += 1
+                            year = metadata_date.year if metadata_date else extract_year_from_url(source)
+                            date_source = "metadata" if metadata_date else "URL"
+                            print(f"   🚨 PRE-2024 URL DETECTED ({date_source}: {year}): {source[:80]}...")
+                            validation_failed = True
+                        elif path_count > 3:  # Has article path
+                            valid_url_count += 1
+                            # Show date source for valid URLs
+                            if source in url_metadata_dates:
+                                print(f"   ✅ Full URL [metadata: {url_metadata_dates[source].strftime('%Y-%m-%d')}]: {source[:80]}...")
+                            else:
+                                year = extract_year_from_url(source)
+                                date_str = f"URL: {year}" if year else "no date"
+                                print(f"   ✅ Full URL [{date_str}]: {source[:80]}...")
+                        else:
+                            print(f"   ⚠️ Generic domain (no article path): {source}")
+                    else:
+                        print(f"   ❌ Not a URL: {source}")
+            
+                # Show pre-2024 warning
+                if pre_2024_count > 0:
+                    print(f"   🚨🚨🚨 FOUND {pre_2024_count} PRE-2024 URLs - MUST BE REMOVED 🚨🚨🚨")
+            
+                # Check if event meets 3+ URL requirement
+                if valid_url_count < 3:
+                    print(f"   🚨🚨🚨 VALIDATION FAILED: Only {valid_url_count} valid URLs (need 3+) 🚨🚨🚨")
+                    validation_failed = True
+                else:
+                    print(f"   ✅ PASSED: {valid_url_count} valid URLs")
+            
+                validation_failed = True
+                # Validate dates match URLs
+                print(f"   📅 Date Validation:")
+                print(f"      URLs: {url_count}, Dates: {date_count}")
+            
+                if date_count != url_count:
+                    print(f"      🚨🚨🚨 VALIDATION FAILED: Date count ({date_count}) doesn't match URL count ({url_count}) 🚨🚨🚨")
+                    validation_failed = True
+                else:
+                    print(f"      ✅ PASSED: Date count matches URL count")
+                
+                # Check date format
+                for i, date_str in enumerate(event.date, 1):
+                    if '/' in date_str and len(date_str) >= 8:  # Proper date format like DD/MM/YYYY
+                        print(f"      ✅ Date {i}: {date_str}")
+                    else:
+                        print(f"      ⚠️ Date {i}: {date_str} (Generic - should be DD/MM/YYYY)")
+                    
+            else:
+                print(f"   ❌ No source provided")
+                print(f"   🚨🚨🚨 VALIDATION FAILED: No URLs provided 🚨🚨🚨")
+                validation_failed = True
+    
+        # Summary of pre-2024 URLs
+        if total_pre_2024_urls > 0:
+            print("" + "="*80)
+            print(f"🚨 CRITICAL: FOUND {total_pre_2024_urls} PRE-2024 URLs IN FINAL OUTPUT")
+            print("="*80)
+            print("⚠️ These URLs must be removed and replaced with 2024+ sources")
+            print("⚠️ Consider re-running the analysis with stricter date filters")
+    
+        if validation_failed:
+            print("" + "="*80)
+            print("❌ OVERALL VALIDATION: FAILED - Some events have insufficient URLs or pre-2024 URLs")
+            print("="*80)
+        else:
+            print("" + "="*80)
+            print("✅ OVERALL VALIDATION: PASSED - All events have 3+ URLs from 2024+")
+            print("="*80)
+
+        # DETAILED URL USAGE ANALYSIS
+        print("" + "="*80)
+        print("🔬 DETAILED URL USAGE ANALYSIS")
+        print("="*80)
+
+        for idx, event in enumerate(structured_response.events, 1):
+            print(f"📌 Event {idx}: {event.event}")
+            print(f"   Category: {event.category}")
+        
+            if event.source:
+                # Handle both list and string formats
+                sources = event.source if isinstance(event.source, list) else [s.strip() for s in event.source.split(',')]
+                print(f"   Total URLs cited: {len(sources)}")
+            
+                for i, source in enumerate(sources, 1):
+                    # Check if it's a full URL
+                    if 'http' in source:
+                        path_count = source.count('/')
+                    
+                        # Check if URL was in our collected list
+                        is_from_search = source in unique_urls
+                    
+                        if path_count > 3:  # Has article path
+                            status = "✅ Valid" if is_from_search else "⚠️ Valid but not from search"
+                            print(f"   {i}. {status}: {source[:70]}...")
+                        
+                            # Show which topic this URL came from
+                            if source in url_to_content:
+                                print(f"      📚 From: {url_to_content[source]['topic']}")
+                        else:
+                            print(f"   {i}. ⚠️ Generic domain: {source}")
+                    else:
+                        print(f"   {i}. ❌ Not a URL: {source}")
+            
+                # Analyze if event needs more sources
+                event_word_count = len(event.description.split()) + len(event.impact.split())
+                recommended_sources = max(2, min(5, event_word_count // 150))
+            
+                if len(sources) < recommended_sources:
+                    print(f"   ⚠️ RECOMMENDATION: Add {recommended_sources - len(sources)} more sources")
+                    print(f"      (Event has {event_word_count} words, recommending {recommended_sources} sources)")
+            else:
+                print(f"   ❌ NO SOURCES PROVIDED")
+    
+
         print("" + "="*80)
         print("✅ FINAL PREDICTIVE INTELLIGENCE REPORT")
         print("="*80)
@@ -1362,9 +1403,35 @@ try:
             except:
                 pass
     
-except json.JSONDecodeError as e:
-    print(f"❌ JSON Decode Error: {e}")
-    print(f"📄 Problematic text (first 1000 chars):{json_text[:1000]}")
-except Exception as e:
-    print(f"❌ Error: {type(e).__name__}: {e}")
-    print(f"📄 Output text (first 1000 chars):{output_text[:1000]}")
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON Decode Error: {e}")
+        print(f"📄 Problematic text (first 1000 chars):{json_text[:1000]}")
+        # Update status file on error
+        from pathlib import Path
+        status_file = Path('research_status.json')
+        if status_file.exists():
+            try:
+                import json as _status_json
+                status_data = _status_json.loads(status_file.read_text())
+                status_data['status'] = 'error'
+                status_data['error'] = f"JSON Decode Error: {str(e)}"
+                status_data['end_time'] = datetime.now().isoformat()
+                status_file.write_text(_status_json.dumps(status_data))
+            except:
+                pass
+    except Exception as e:
+        print(f"❌ Error: {type(e).__name__}: {e}")
+        print(f"📄 Output text (first 1000 chars):{output_text[:1000]}")
+        # Update status file on error
+        from pathlib import Path
+        status_file = Path('research_status.json')
+        if status_file.exists():
+            try:
+                import json as _status_json
+                status_data = _status_json.loads(status_file.read_text())
+                status_data['status'] = 'error'
+                status_data['error'] = f"{type(e).__name__}: {str(e)}"
+                status_data['end_time'] = datetime.now().isoformat()
+                status_file.write_text(_status_json.dumps(status_data))
+            except:
+                pass
