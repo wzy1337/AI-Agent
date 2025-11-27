@@ -1,535 +1,65 @@
+# -*- coding: utf-8 -*-
+import sys
+import io
+
+# Force UTF-8 encoding for stdout/stderr to avoid Windows encoding issues
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
-from tools import search_tool, wiki_tool, save_tool, tavily_tool
-import datetime
-from dateutil.relativedelta import relativedelta
+from tools import search_tool, wiki_tool, save_tool, tavily_tool, tavily_extract_tool
+from datetime import datetime
+import json as _json
 import json
 import re
-from urllib.parse import urlparse, parse_qs
-from pathlib import Path
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
+import difflib
+from collections import Counter
+
+# Import from new modular structure
+from config import (
+    NOW, ONE_YEAR_AGO_INT, CURRENT_DATETIME_STR,
+    LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS,
+    MIN_YEAR_FILTER, FUZZY_MATCH_THRESHOLD, MIN_URLS_PER_EVENT,
+    KNOWLEDGE_QUERIES
+)
+from models import Event, ResearchResponse
+from utils.date_utils import (
+    extract_year_from_url,
+    extract_date_from_tavily_metadata,
+    extract_dates_from_search_output,
+    is_url_from_2024_onwards,
+    filter_urls_by_date
+)
+from utils.file_utils import (
+    get_all_research_files,
+    extract_event_names_list,
+    extract_event_details,
+    get_previous_events
+)
+from utils.pdf_export import save_research_output_as_pdf
+from stage1_knowledge import execute_knowledge_queries
 
 # Import API keys from sample.env file
 load_dotenv(dotenv_path="sample.env")
  
-#Find Current Date for LLM context
-now = datetime.now()
-one_year_ago_datetime = now - relativedelta(years=1)
-one_year_ago_int = one_year_ago_datetime.year
-current_datetime_str = now.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timezone is UTC+8.")
-
-
-# -----------------------------
-# URL Date Filtering Function
-# -----------------------------
-def extract_year_from_url(url: str) -> Optional[int]:
-    """
-    Extract publication year from URL patterns.
-    Returns year as int if found, None otherwise.
-    
-    Common patterns:
-    - /2024/01/article
-    - /article-2024-01-15
-    - ?date=2024-01-15
-    """
-    # Pattern 1: /YYYY/ in path
-    year_match = re.search(r'/(\d{4})/', url)
-    if year_match:
-        return int(year_match.group(1))
-    
-    # Pattern 2: YYYY-MM-DD anywhere
-    date_match = re.search(r'(\d{4})-\d{2}-\d{2}', url)
-    if date_match:
-        return int(date_match.group(1))
-    
-    # Pattern 3: /YYYYMMDD/ format
-    compact_date = re.search(r'/(\d{4})\d{4}/', url)
-    if compact_date:
-        return int(compact_date.group(1))
-    
-    # Pattern 4: Query parameters (e.g., ?date=2024-01-15)
-    try:
-        parsed = urlparse(url)
-        params = parse_qs(parsed.query)
-        for key in ['date', 'published', 'publishDate', 'pubdate']:
-            if key in params:
-                date_str = params[key][0]
-                date_match = re.search(r'(\d{4})', date_str)
-                if date_match:
-                    return int(date_match.group(1))
-    except:
-        pass
-    
-    return None
-
-def extract_date_from_tavily_metadata(output: str, url: str) -> Optional[datetime]:
-    """
-    Extract published date from Tavily search result metadata.
-    Looks for the 'Published: YYYY-MM-DD' line after the URL.
-    """
-    try:
-        # Find the section containing this URL
-        url_escaped = re.escape(url)
-        pattern = rf'🔗 COMPLETE URL: {url_escaped}\s*\n📅 Published: ([^\n]+)'
-        match = re.search(pattern, output)
-        
-        if match:
-            date_str = match.group(1).strip()
-            if date_str and date_str != 'Date not available':
-                # Try to parse the date
-                try:
-                    return date_parser.parse(date_str)
-                except:
-                    pass
-    except:
-        pass
-    
-    return None
-
-def extract_dates_from_search_output(output: str) -> Dict[str, datetime]:
-    """
-    Extract all URLs and their published dates from Tavily search output.
-    Returns dict mapping URL -> datetime object.
-    """
-    url_dates = {}
-    
-    # Pattern to match URL and its published date
-    pattern = r'🔗 COMPLETE URL: ([^\n]+)\s*\n📅 Published: ([^\n]+)'
-    matches = re.findall(pattern, output)
-    
-    for url, date_str in matches:
-        url = url.strip()
-        date_str = date_str.strip()
-        
-        if date_str and date_str != 'Date not available':
-            try:
-                parsed_date = date_parser.parse(date_str)
-                url_dates[url] = parsed_date
-            except:
-                pass
-    
-    return url_dates
-
-def is_url_from_2024_onwards(url: str, verbose: bool = False, metadata_date: Optional[datetime] = None) -> bool:
-    """
-    Check if URL is from 2024 or later.
-    
-    Priority:
-    1. Use metadata_date if provided (from Tavily)
-    2. Extract year from URL pattern
-    3. Default to True (benefit of doubt)
-    
-    Returns True if year >= 2024 or year cannot be determined.
-    Returns False if year < 2024.
-    """
-    # Priority 1: Use metadata date if available
-    if metadata_date:
-        year = metadata_date.year
-        if verbose:
-            date_source = "metadata"
-            if year >= 2024:
-                print(f"   ✅ Year {year} from {date_source} (valid): {url[:60]}...")
-            else:
-                print(f"   ❌ Year {year} from {date_source} (DISCARDED): {url[:60]}...")
-        return year >= 2024
-    
-    # Priority 2: Extract from URL
-    year = extract_year_from_url(url)
-    
-    if year is None:
-        if verbose:
-            print(f"   ⚠️ No date found (allowing): {url[:60]}...")
-        return True  # Cannot determine, allow it
-    
-    if year >= 2024:
-        if verbose:
-            print(f"   ✅ Year {year} from URL (valid): {url[:60]}...")
-        return True
-    else:
-        if verbose:
-            print(f"   ❌ Year {year} from URL (DISCARDED): {url[:60]}...")
-        return False
-
-def filter_urls_by_date(urls: List[str], min_year: int = 2024, verbose: bool = False, 
-                        url_metadata: Optional[Dict[str, datetime]] = None) -> Tuple[List[str], Dict[str, str]]:
-    """
-    Filter list of URLs to only include those from min_year onwards.
-    URLs without detectable dates are included (benefit of doubt).
-    
-    Args:
-        urls: List of URLs to filter
-        min_year: Minimum year to keep (default: 2024)
-        verbose: Print filtering details
-        url_metadata: Optional dict mapping URL -> datetime from search metadata
-    
-    Returns:
-        Tuple of (filtered_urls, date_info) where date_info maps URL -> date source
-    """
-    filtered = []
-    discarded = []
-    date_info = {}  # Track where date came from
-    
-    for url in urls:
-        # Check metadata first
-        metadata_date = url_metadata.get(url) if url_metadata else None
-        
-        if is_url_from_2024_onwards(url, verbose=verbose, metadata_date=metadata_date):
-            filtered.append(url)
-            
-            # Track date source
-            if metadata_date:
-                date_info[url] = f"metadata:{metadata_date.strftime('%Y-%m-%d')}"
-            else:
-                year = extract_year_from_url(url)
-                if year:
-                    date_info[url] = f"url:{year}"
-                else:
-                    date_info[url] = "unknown"
-        else:
-            discarded.append(url)
-    
-    if verbose and discarded:
-        print(f"\n🗑️ DISCARDED {len(discarded)} URLs from before {min_year}:")
-        for url in discarded[:5]:  # Show first 5
-            print(f"   - {url}")
-        if len(discarded) > 5:
-            print(f"   ... and {len(discarded) - 5} more")
-    
-    return filtered, date_info
-
-
-# -----------------------------
-# PDF Export Function
-# -----------------------------
-def save_research_output_as_pdf(research_response, filename: str = None):
-    """
-    Save the research output as a formatted PDF.
-    """
-    if filename is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"research_output_{timestamp}.pdf"
-    
-    # Ensure filename has .pdf extension
-    if not filename.endswith('.pdf'):
-        filename += '.pdf'
-    
-    # Create PDF
-    doc = SimpleDocTemplate(
-        filename,
-        pagesize=A4,
-        rightMargin=72,
-        leftMargin=72,
-        topMargin=72,
-        bottomMargin=18,
-    )
-    
-    # Container for PDF elements
-    story = []
-    
-    # Define styles
-    styles = getSampleStyleSheet()
-    
-    # Custom styles
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=24,
-        textColor=colors.HexColor('#1a5490'),
-        spaceAfter=30,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )
-    
-    heading1_style = ParagraphStyle(
-        'CustomHeading1',
-        parent=styles['Heading1'],
-        fontSize=16,
-        textColor=colors.HexColor('#1a5490'),
-        spaceAfter=12,
-        spaceBefore=12,
-        fontName='Helvetica-Bold'
-    )
-    
-    heading2_style = ParagraphStyle(
-        'CustomHeading2',
-        parent=styles['Heading2'],
-        fontSize=14,
-        textColor=colors.HexColor('#2c5f8d'),
-        spaceAfter=10,
-        spaceBefore=10,
-        fontName='Helvetica-Bold'
-    )
-    
-    heading3_style = ParagraphStyle(
-        'CustomHeading3',
-        parent=styles['Heading3'],
-        fontSize=12,
-        textColor=colors.HexColor('#2c5f8d'),
-        spaceAfter=8,
-        fontName='Helvetica-Bold'
-    )
-    
-    body_style = ParagraphStyle(
-        'CustomBody',
-        parent=styles['BodyText'],
-        fontSize=10,
-        alignment=TA_JUSTIFY,
-        spaceAfter=10,
-        leading=14
-    )
-    
-    bullet_style = ParagraphStyle(
-        'CustomBullet',
-        parent=styles['BodyText'],
-        fontSize=10,
-        leftIndent=20,
-        spaceAfter=6,
-        leading=14
-    )
-    
-    # Helper function to clean text for PDF
-    def clean_text(text):
-        """Remove problematic characters and escape XML special chars"""
-        if not text:
-            return ""
-        # Replace common problematic characters
-        text = str(text)
-        text = text.replace('&', '&amp;')
-        text = text.replace('<', '&lt;')
-        text = text.replace('>', '&gt;')
-        # Remove emoji and special unicode
-        text = re.sub(r'[^\x00-\x7F\u00A0-\uFFFF]+', '', text)
-        return text
-    
-    # Title Page
-    story.append(Paragraph(clean_text(research_response.topic), title_style))
-    story.append(Spacer(1, 0.2*inch))
-    
-    # Metadata
-    metadata_data = [
-        ['Generated:', datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
-        ['Total Events:', str(len(research_response.events))],
-        ['Action Items:', str(len(research_response.action_items) if research_response.action_items else 0)],
-    ]
-    
-    metadata_table = Table(metadata_data, colWidths=[2*inch, 4*inch])
-    metadata_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-    
-    story.append(metadata_table)
-    story.append(Spacer(1, 0.3*inch))
-    
-    # Executive Summary
-    story.append(Paragraph("Executive Summary", heading1_style))
-    story.append(Paragraph(clean_text(research_response.summary), body_style))
-    story.append(Spacer(1, 0.2*inch))
-    
-    # Sources
-    if research_response.source:
-        story.append(Paragraph("Primary Sources", heading2_style))
-        for idx, source in enumerate(research_response.source, 1):
-            story.append(Paragraph(f"{idx}. {clean_text(source)}", bullet_style))
-    
-    story.append(PageBreak())
-    
-    # Events Section
-    story.append(Paragraph("Detailed Analysis of Events", heading1_style))
-    story.append(Spacer(1, 0.1*inch))
-    
-    for idx, event in enumerate(research_response.events, 1):
-        # Event Header
-        story.append(Paragraph(f"Event {idx}: {clean_text(event.event)}", heading2_style))
-        
-        # Event Metadata Table
-        event_metadata = [
-            ['Category:', clean_text(event.category)],
-            ['Location:', clean_text(event.location) if event.location else 'N/A'],
-            ['Date Range:', clean_text(', '.join(event.date)) if event.date else 'N/A'],
-            ['Relevance:', clean_text(event.relevance)],
-            ['Confidence:', clean_text(event.confidence)],
-            ['Signal Strength:', clean_text(event.signal_strength)],
-        ]
-        
-        event_table = Table(event_metadata, colWidths=[1.5*inch, 4.5*inch])
-        event_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1a5490')),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        
-        story.append(event_table)
-        story.append(Spacer(1, 0.15*inch))
-        
-        # Description
-        story.append(Paragraph("<b>Description:</b>", heading3_style))
-        story.append(Paragraph(clean_text(event.description), body_style))
-        
-        # Impact
-        story.append(Paragraph("<b>Impact Analysis:</b>", heading3_style))
-        story.append(Paragraph(clean_text(event.impact), body_style))
-        
-        # Scenario
-        story.append(Paragraph("<b>Scenarios:</b>", heading3_style))
-        story.append(Paragraph(clean_text(event.scenario), body_style))
-        
-        # Actors
-        story.append(Paragraph("<b>Key Actors:</b>", heading3_style))
-        actors_text = ', '.join(event.actors) if event.actors else 'N/A'
-        story.append(Paragraph(clean_text(actors_text), body_style))
-        
-        # Policy Intervention
-        story.append(Paragraph("<b>Policy Intervention Recommendations:</b>", heading3_style))
-        story.append(Paragraph(clean_text(event.policy_intervention), body_style))
-        
-        # Sources
-        story.append(Paragraph("<b>Sources:</b>", heading3_style))
-        if event.source:
-            # Handle both list and string formats
-            sources = event.source if isinstance(event.source, list) else event.source.split(', ')
-            for source in sources:
-                story.append(Paragraph(f"• {clean_text(source)}", bullet_style))
-        
-        # Informal Insights (if available)
-        if hasattr(event, 'informal_insights') and event.informal_insights:
-            story.append(Paragraph("<b>Informal Insights:</b>", heading3_style))
-            story.append(Paragraph(clean_text(event.informal_insights), body_style))
-        
-        if idx < len(research_response.events):
-            story.append(PageBreak())
-    
-    # Action Items
-    if research_response.action_items:
-        story.append(PageBreak())
-        story.append(Paragraph("Recommended Action Items", heading1_style))
-        story.append(Spacer(1, 0.1*inch))
-        
-        for idx, action in enumerate(research_response.action_items, 1):
-            story.append(Paragraph(f"{idx}. {clean_text(action)}", bullet_style))
-    
-    # Repeated Events (if any)
-    if hasattr(research_response, 'repeated_events') and research_response.repeated_events:
-        story.append(Spacer(1, 0.2*inch))
-        story.append(Paragraph("Repeated Events", heading2_style))
-        for event in research_response.repeated_events:
-            story.append(Paragraph(f"• {clean_text(event)}", bullet_style))
-    
-    # Build PDF
-    try:
-        doc.build(story)
-        file_size = Path(filename).stat().st_size / 1024
-        print(f"\n✅ PDF saved: {filename}")
-        print(f"📄 File size: {file_size:.2f} KB")
-        return filename
-    except Exception as e:
-        print(f"❌ Error creating PDF: {e}")
-        return None
-
-
-# -----------------------------
-# Pydantic Models for Structured Output
-# -----------------------------
-class Event(BaseModel):
-    event: str
-    description: str = Field(
-        description="Detailed 150+ word context with international comparisons/case studies."
-    )
-    date: List[str] = Field(
-        description="⚠️ Each URL in 'source' must have a matching date in DD/MM/YYYY format. Example: if 3 URLs → 3 dates. Extract from article content or metadata; no generic years."
-    )
-    actors: List[str]
-    location: Optional[str]
-    category: str  # Policy / Systemic risk / Public sentiment
-
-    impact: str = Field(
-        description="150+ word CPF impact analysis by stakeholder group:"
-                    "- Young (20–35): OA & housing"
-                    "- Mid-career (35–50): SA/MA balance"
-                    "- Pre-retirees (50–65): adequacy & withdrawals"
-                    "- Retirees (65+): CPF LIFE & Medisave"
-                    "- Gig workers / Low-wage / PMET: irregularity & risk gaps"
-                    "Include $ figures, affected population, and precedents."
-    )
-
-    scenario: str = Field(
-        min_length=200,
-        description="Predictive scenario (200+ words) with 4 cases. Use inline [URL#] citations: "
-                    "1️⃣ **Base** – Most likely outcome (estimate probability as a % range) "
-                    "2️⃣ **Optimistic** – Best realistic outcome (estimate probability as a % range) "
-                    "3️⃣ **Pessimistic** – Worst realistic outcome (estimate probability as a % range) "
-                    "4️⃣ **Black Swan** – Tail risk (estimate probability as a % range) "
-                    "Each case: year, trigger, quantified CPF impact, and affected groups. "
-                    "You MUST estimate scenario probabilities based on the unique evidence, uncertainty, and context for each event. Do NOT use default or template probabilities—tailor the numbers to the specifics of the event. Briefly justify each probability in 1–2 sentences. Use 2026–2035 timeframe."
-    )
-
-    source: str = Field(
-        description="""
-        For Established issues
-        List all full article URLs (comma-separated) from *different* sources. Example: 'https://a.com/x, https://b.com/y, https://c.com/z'.
-        """
-
-    )
-
-    relevance: str = Field(description="High / Medium / Low — with one-line justification.")
-
-    confidence: str = Field(
-        description="Confidence (High/Med/Low) + evidence-based breakdown:"
-                    "- Source quality (gov/academic/news)"
-                    "- Trend consistency"
-                    "- Geographic precedent"
-                    "- Expert consensus"
-                    "- Quantitative support"
-                    "Rate each 1–10 (e.g. 'Source: 8/10 - 2 govt + 1 academic')."
-    )
-
-    policy_intervention: str = Field(
-        description="200+ word decision-support note:"
-                    "- Option A & B: describe intervention, pros/cons, precedent"
-                    "- 3–5 monitoring indicators"
-                    "- 3 reflective questions for policymakers (data gaps, stakeholders, feasibility)."
-    )
-    signal_strength: str = Field(description="Tag as 'Established', 'Emerging', or 'Weak Signal' with a brief rationale.")
-    informal_insights: Optional[str] = Field(default=None, description="For established/mainstream events, summarize the latest new developments, sentiment, or weak signals from informal channels (e.g., forums, social media, community blogs). Only populate if signal_strength is 'Established'.")
-
-# One research response---(contains)---> multiple events--> one event covers all the fields listed above
-class ResearchResponse(BaseModel):
-    topic: str
-    summary: str = Field(description="EXECUTIVE SUMMARY for policymakers (150-200 words):"
-                        "Brief overview of findings designed for senior decision-makers."
-                        "Format: [X] emerging issues identified, prioritized by [criteria]. "
-                        "Most urgent: [issue], requiring attention by [timeframe]. "
-                        "Key uncertainties: [what we don't know]. "
-                        "Recommended next actions: [immediate steps for validation/planning].")
-    source: List[str] = Field(description="🚨 CRITICAL: Cite ALL FULL URLs used as evidence. Source QUALITY > quantity. A single government report is better than 3 opinion blogs. Justify the quality of sources in the 'confidence' field.")
-    tools_used: List[str]
-    events: List[Event]
-    action_items: List[str] = Field(default_factory=list, description="Optional: 3-5 immediate next steps for policymakers (e.g., 'Request MOM data on caregiving workforce exits', 'Consult with eldercare sector on cost projections')")
-    repeated_events: Optional[List[str]] = Field(default=None, description="List of event names that are repeated from previous reports for explicit highlighting.")
+# Use config values
+now = NOW
+one_year_ago_int = ONE_YEAR_AGO_INT
+current_datetime_str = CURRENT_DATETIME_STR
 
 # -----------------------------
 # LLM Setup
 # -----------------------------
 llm = ChatOpenAI(
-    model="gpt-4o-mini",           # Or "gpt-4o-mini" for faster runs
-    temperature=0,             # Deterministic output for structured data
+    model=LLM_MODEL,
+    temperature=LLM_TEMPERATURE,
+    max_tokens=LLM_MAX_TOKENS,
 )
 
 parser = PydanticOutputParser(pydantic_object=ResearchResponse)
@@ -549,11 +79,14 @@ You are an elite research assistant specializing in CPF policy analysis and grou
 
 Current date: {current_date_time}
 
-Instructions:
+**Instructions:**
 - **Do not summarize, analyze, or generate structured outputs. Only return raw search results and metadata.**
-- Focus strictly on information from 2024-2025. Reject and ignore any articles or data from before 2024.
-- Perform search using *tavily tool* to gain better ground sensing and collate a knowledge list
-
+- Focus strictly on information from {one_year_ago} to {current_date_time}. REJECT and IGNORE any articles or data from before {one_year_ago}.
+- Perform search using *tavily_tool* to find relevant articles with URLs
+- Use *tavily_extract_tool* to verify article publication dates and extract full metadata from URLs
+- The tavily_extract_tool will AUTOMATICALLY REJECT articles published before 2024
+- If an article is rejected by tavily_extract_tool due to old publication date, search for more recent sources
+- Always verify article dates using tavily_extract_tool before including them in your knowledge base
 
 """
 
@@ -565,14 +98,15 @@ stage1_prompt = ChatPromptTemplate.from_messages(
         ("placeholder", "{agent_scratchpad}"),
     ]
 ).partial(
-    current_date_time=current_datetime_str  # Add this line
+    current_date_time=current_datetime_str, # Add this line
+    one_year_ago=one_year_ago_int  # ADD THIS LINE
 )
 
 
 # -----------------------------
 # Tools Setup
 # -----------------------------
-tools = [tavily_tool, save_tool]
+tools = [tavily_tool, tavily_extract_tool, save_tool]
 
 # Add fallback search if available
 if search_tool is not None:
@@ -607,6 +141,7 @@ knowledge_queries = [
     {"query": "What are the biggest global economic, demographic, or geopolitical risks that could impact retirement systems and pension funds worldwide 2024-2025?", "label": "Global Macro: Systemic Risks to Retirement", "sentiment": "horizon"},
     {"query": "What are international organizations (IMF, World Bank, OECD, BIS) warning about regarding pension sustainability and retirement adequacy 2024-2025?", "label": "Global Macro: International Warnings", "sentiment": "horizon"},
     {"query": "What are the most significant pension crises, reforms, or failures happening globally 2024-2025? Include Europe, Asia, Americas, and emerging markets.", "label": "Global Macro: Pension Crises Worldwide", "sentiment": "horizon"},
+
     
     # ============================================
     # TIER 2: CROSS-BORDER TRENDS & PRECEDENTS
@@ -615,15 +150,7 @@ knowledge_queries = [
     {"query": "What retirement and social security challenges are Asian countries (Japan, South Korea, Taiwan, Hong Kong, Malaysia) facing 2024-2025? Regional comparisons.", "label": "International: Asian Retirement Challenges", "sentiment": "horizon"},
     {"query": "What lessons from international pension failures or controversies could apply to Singapore 2024-2025? Include UK, US, European cases.", "label": "International: Cautionary Tales & Failures", "sentiment": "horizon"},
     {"query": "What are global think tanks and research institutions publishing about future-of-retirement and pension sustainability 2024-2025? Include Brookings, CSIS, Peterson Institute.", "label": "International: Think Tank Research", "sentiment": "horizon"},
-    
-    # ============================================
-    # TIER 3: TECHNOLOGY & DISRUPTION
-    # ============================================
-    {"query": "How are AI, automation, and gig economy disrupting traditional employment and retirement savings globally 2024-2025? Future of work implications.", "label": "Tech Disruption: AI & Future of Work", "sentiment": "horizon"},
-    {"query": "What are fintech, crypto, and web3 innovations in retirement planning and pension management 2024-2025? Include DeFi, tokenization, digital assets.", "label": "Tech Disruption: Fintech & Web3 Pensions", "sentiment": "horizon"},
-    {"query": "What are the cybersecurity risks, data breaches, or tech failures affecting pension funds and retirement systems 2024-2025?", "label": "Tech Disruption: Cyber Risks to Pensions", "sentiment": "horizon"},
-    {"query": "How are longevity breakthroughs, healthtech, and aging science changing retirement planning assumptions 2024-2025? Impact of living to 100+.", "label": "Tech Disruption: Longevity & Healthtech", "sentiment": "horizon"},
-    
+
     # ============================================
     # TIER 4: WEAK SIGNALS & FRINGE SOURCES
     # ============================================
@@ -632,28 +159,6 @@ knowledge_queries = [
     {"query": "What speculative scenarios, black swan events, or 'what if' analyses exist for pension and retirement systems 2024-2025? Include scenario planning.", "label": "Weak Signals: Black Swan Scenarios", "sentiment": "horizon"},
     {"query": "What are fringe communities, subcultures, or movements saying about retirement (FIRE movement, anti-work, digital nomads) 2024-2025?", "label": "Weak Signals: Fringe Movements & Subcultures", "sentiment": "horizon"},
     
-    # ============================================
-    # TIER 5: INTERDISCIPLINARY & ADJACENT DOMAINS
-    # ============================================
-    {"query": "How are climate change, environmental risks, and ESG factors affecting pension fund strategies and retirement security 2024-2025?", "label": "Adjacent: Climate & ESG Impact", "sentiment": "horizon"},
-    {"query": "What are behavioral economics and psychology insights on retirement savings behavior and pension engagement 2024-2025? Nudge theory applications.", "label": "Adjacent: Behavioral Economics", "sentiment": "horizon"},
-    {"query": "How are housing affordability crisis, real estate bubbles, and homeownership affecting retirement adequacy globally 2024-2025?", "label": "Adjacent: Housing & Retirement", "sentiment": "horizon"},
-    {"query": "What are healthcare cost inflation, long-term care crises, and medical bankruptcy implications for retirement planning 2024-2025?", "label": "Adjacent: Healthcare Costs & Retirement", "sentiment": "horizon"},
-    
-    # ============================================
-    # TIER 6: SINGAPORE-SPECIFIC (Enhanced Scope)
-    # ============================================
-    {"query": "What are the most surprising or under-discussed CPF and retirement issues in Singapore 2024-2025? Include forums, social media, Reddit r/singapore.", "label": "Singapore: Non-Obvious Issues & Ground Sensing", "sentiment": "horizon"},
-    {"query": "What are Singapore policymakers, ministers, and MPs saying about CPF reforms and retirement challenges 2024-2025? Parliamentary debates.", "label": "Singapore: Policy Signals & Debates", "sentiment": "horizon"},
-    {"query": "What are Singaporean researchers, universities, and think tanks (LKYSPP, IPS, RSIS) publishing on CPF and retirement 2024-2025?", "label": "Singapore: Academic & Research", "sentiment": "horizon"},
-    {"query": "How do Singapore's retirement challenges compare to regional neighbors and advanced economies 2024-2025? Benchmarking and gap analysis.", "label": "Singapore: Comparative Analysis", "sentiment": "horizon"},
-    
-    # ============================================
-    # TIER 7: EXPERT OPINIONS & THOUGHT LEADERSHIP
-    # ============================================
-    {"query": "What are leading economists, pension experts, and thought leaders predicting about retirement systems 2024-2025? Include Nobel laureates, IMF economists.", "label": "Expert Opinions: Leading Economists", "sentiment": "horizon"},
-    {"query": "What are investment managers, asset allocators, and sovereign wealth funds saying about pension fund strategies 2024-2025? BlackRock, Vanguard, GIC insights.", "label": "Expert Opinions: Investment Perspectives", "sentiment": "horizon"},
-    {"query": "What are demographic experts and population researchers warning about aging societies and pension sustainability 2024-2025?", "label": "Expert Opinions: Demographics & Aging", "sentiment": "horizon"},
 ]
 
 
@@ -736,7 +241,6 @@ for idx, kq in enumerate(knowledge_queries, 1):
         if output:
             # Extract URLs from output
             urls_in_output = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', output)
-            found_urls.extend(urls_in_output)
             
             # NEW: Extract published dates from Tavily metadata
             output_metadata = extract_dates_from_search_output(output)
@@ -758,12 +262,7 @@ for idx, kq in enumerate(knowledge_queries, 1):
             sentiment_label = kq.get('sentiment', 'neutral').upper()
             all_knowledge.append(f"## {kq['label']} [SENTIMENT: {sentiment_label}]{output}")
             all_sources.append(output)
-            print(f"✅ Collected {len(output)} characters, {len(urls_in_output)} URLs")
             
-            # ADD THIS: Show found URLs
-            if urls_in_output:
-                for url in urls_in_output[:2]:  # Show first 2
-                    print(f"       📎 {url}")
             # Show filtering results
             filtered_count = urls_before_filter - urls_after_filter
             metadata_count = sum(1 for url in filtered_urls if url in output_metadata)
@@ -906,10 +405,16 @@ if hot_topic_urls:
 
 # Define the prediction query with URLs (Improved for direct action)
 prediction_query = f"""
-**ANALYZE & FORECAST**: Identify 3-5 high-priority, non-obvious emerging issues impacting CPF AND/OR its CPF members (2026-2035).
-**ANALYZE & FORECAST**: Identify 10-15 high-priority, non-obvious emerging issues impacting CPF AND/OR its CPF members (2026-2035).
+**ANALYZE & FORECAST**: Identify 10-15 high-priority, non-obvious (CANNOT BE MAINSTREAM PROBLEMS) emerging issues impacting CPF AND/OR its CPF members (2026-2035).
+Prioritize *emerging* issues based on Urgency × Impact × Novelty.
 When searching for information on mainstream CPF issues, prioritize and include results from informal channels (e.g., forums, social media, community blogs, public comments) in addition to mainstream news sources. Highlight early warning signals, sentiment, and public concerns from these informal sources.
 
+⚠️ **CRITICAL VALIDATION REQUIREMENT**:
+For EACH event, the number of dates MUST EXACTLY EQUAL the number of source URLs.
+- If you cite 3 URLs → you MUST provide 3 dates
+- If you cite 5 URLs → you MUST provide 5 dates
+- Date format: DD/MM/YYYY (e.g., "15/03/2024", NOT "2024")
+- Count carefully before submitting!
 
 Order the final output by Urgency × Impact × Novelty score.
 
@@ -922,7 +427,6 @@ Order the final output by Urgency × Impact × Novelty score.
 """
 
 
-# -----------------------------
 # ------------------------------------------
 # STAGE 2: Trend Analysis & Prediction
 # -----------------------------
@@ -931,104 +435,99 @@ print("🔮 STAGE 2: TREND ANALYSIS & PREDICTIVE SYNTHESIS")
 print("="*80)
 
 prediction_system_prompt = f"""
-You are a strategic foresight analyst for Singapore’s CPF system, advising senior policymakers and monitoring issues that could affect up to 4.4 million CPF members.
-
-TASK: Use the provided data to anticipate **CPF-related risks, opportunities, and structural shifts** for {one_year_ago_int} to {current_datetime_str}, with special attention to both mainstream (established) and emerging issues.
-
-**MANDATORY CHECK FOR ESTABLISHED ISSUES:**
-- Always check for and include established (mainstream) issues (e.g., cost of living, healthcare, CPF policy changes) in your analysis, even if they are recurring or well-known.
-- For each established issue, surface and highlight the latest new developments, sentiment shifts, or weak signals from informal channels (e.g., Reddit, forums, social media, community blogs, public comments).
-- When citing evidence for established issues, prioritize and include informal sources (such as Reddit articles or forum posts) if available, and cite them directly in the event's source field.
-- Clearly distinguish between established issues and new/emerging issues in your output.
-
-**PRIORITIZE:**
-- For mainstream problems, focus your analysis on evidence, sentiment, and early warning signals from informal channels, not just official or mainstream news.
-- Highlight how informal perspectives may reveal emerging risks, gaps, or public concerns that are not yet fully addressed by policy.
-- Also include non-mainstream, weak-signal friction, and established issues only if they show novel urgency or character.
-
-**Definition:** An emerging issue is a new, weak-signal, or rapidly developing trend with limited but credible evidence, not yet widely reported or discussed.
-
-Current date: {current_datetime_str}
-Intelligence horizon: STRICTLY 2024-2025 ONLY (ignore pre-2024 articles)
-
-----------
-
-### CRITICAL OUTPUT INSTRUCTIONS
-1. DO NOT generate any  text, conversation, apologies, or markdown code blocks.
-2. RETURN ONLY the raw JSON object that precisely conforms to the ResearchResponse schema below.
-3. For each event, create a detailed, well-supported Event object.
-4. Your analysis must be evidence-based and fully leverage the Pydantic Field Descriptions (minimum length, formatting, required content).
-5. For the 'scenario' field, introductory estimate scenario probabilities based on unique evidence for each event. Do NOT use default/template probabilities—tailor numbers to the event and briefly justify each probability.
-6. If an event has only one credible source URL:
-   - Flag as "Emerging" or "Weak Signal".
-   - Set confidence to "Medium" or "Low" (never "High").
-   - Add a short justification for why only one source was found.
-   - Recommend specific further monitoring actions (e.g., "Monitor for additional reports", "Seek field feedback", "Track social media/forums").
-
-
-## ResearchResponse SCHEMA (SUMMARY)
-- topic: str
-- summary: str (150-200 words, executive summary)
-- source: List[str] (ALL full URLs used)
-- tools_used: List[str]
-- events: List[Event]
-- action_items: List[str] (optional)
-
-## Event FIELDS (for each event)
-- event: str
-- description: str (≥150 words, with data)
-- date: List[str] (DD/MM/YYYY, one per URL)
-- actors: List[str]
-- location: Optional[str]
-- category: str
-- impact: str (≥150 words, stakeholder segmentation, quantified)
-- scenario: str (≥500 chars, 4 scenarios: Base, Optimistic, Pessimistic, Black Swan, with [**{"INSERT RELEVANT URL"}] inline citations)
-- source: str (≥3 full URLs, comma-separated, from different topics)
-- relevance: str (High/Medium/Low + justification)
-- confidence: str (High/Medium/Low + evidence-based justification)
-- policy_intervention: str (≥200 words, multiple options, pros/cons, precedents, questions, monitoring indicators)
-- signal_strength: str (Tag as 'Established', 'Emerging', or 'Weak Signal' with rationale)
-
-----------
-
-## SOURCE & DATE RULES
-- Each event should cite ≥2 full URLs from different topic areas where possible.
-- For each URL, extract publication date (DD/MM/YYYY) from article context.
-- The number of dates MUST match the number of URLs.
-- NO generic domains or years.
+You are a **strategic foresight analyst** advising senior policymakers on Singapore’s CPF system. 
+Your role: monitor and anticipate **CPF-related risks, opportunities, and structural shifts** from **{one_year_ago_int} to {current_datetime_str}**, covering both **established** and **emerging** issues.
 
 ---
 
-## EVENT CHECKLIST (for each event)
-- [ ] Has NOT been reported in last 2 weeks
-- [ ] 2+ full URLs from different topics OR flag event as emerging, low confidence.
-- [ ] Dates match URLs, all in DD/MM/YYYY
-- [ ] description ≥150 words
-- [ ] impact ≥150 words, stakeholder segmentation
-- [ ] scenario ≥500 chars, 4 scenarios, [URL#] citations
-- [ ] Quantified data (numbers, percentages, $)
-- [ ] Policy options: multiple, with pros/cons, precedents
-- [ ] Validation questions and monitoring metrics
+### 1️⃣ SCOPE & MANDATE
+- **Always include established (mainstream) issues** (e.g., cost of living, healthcare, CPF policy changes).
+- For each established issue, surface the **latest developments, sentiment shifts, or weak signals** — especially from **informal channels** (Reddit, forums, social media, blogs).
+- Cite informal sources directly in the `"source"` field when relevant.
+- **Clearly distinguish** between *established* and *emerging* issues in your output.
 
 ---
 
-## EXAMPLE (ABBREVIATED)
-Event: "Quiet Quitting in Sandwich Generation"
-Timeframe: 2026-2030 | Strength: 7-8
-Description: [150+ words, with data and citations]
-Impact: [150+ words, with segmentation and numbers]
-Scenario: [500+ chars, 4 scenarios, [URL#] inline]
-Policy Intervention: [200+ words, options, pros/cons, precedents, questions, metrics]
-Source: "https://employment-url-1, https://cpf-policy-url-2, https://regional-pension-url-3"
-Date: ["15/03/2024", "22/11/2024", "08/01/2025"]
+### 2️⃣ PRIORITIZATION RULES
+- For mainstream issues: emphasize **informal signals** and **sentiment gaps** beyond official reports.
+- Include non-mainstream or weak-signal issues **only** if they show **new urgency or novelty**.
+- Highlight how informal perspectives reveal **unaddressed risks or opportunities**.
+
+**Definition:**  
+An *emerging issue* is a new, weak-signal, or fast-developing trend with limited but credible evidence, **not yet widely reported**.
+
+**Time Horizon:** STRICTLY **2024–2025** (ignore pre-2024 material).  
+**Current Date:** {current_datetime_str}
 
 ---
 
-## CRITICAL: Return ONLY the raw JSON object matching the schema. NO markdown, NO extra text.
+### 3️⃣ OUTPUT FORMAT (CRITICAL)
+1. **Return ONLY** the raw JSON object conforming to the `ResearchResponse` schema.  
+   - ❌ No markdown, no explanations, no extra text.  
+2. Each `"event"` must be a full, evidence-based `Event` object.
+3. Fully leverage the Pydantic Field Descriptions (respect min lengths, required fields, and formatting).
+
+---
+
+### 4️⃣ SCENARIO FIELD REQUIREMENTS
+- Write a **predictive scenario (200+ words)** containing **four cases**:
+  1️⃣ **Base** – Most likely outcome (include probability % range)  
+  2️⃣ **Optimistic** – Best realistic outcome (include probability % range)  
+  3️⃣ **Pessimistic** – Worst realistic outcome (include probability % range)  
+  4️⃣ **Black Swan** – Low-probability, high-impact case (include probability % range)  
+
+Each case must specify:
+- **Year (2026–2035)**  
+- **Trigger** or key event  
+- **Quantified CPF impact**  
+- **Affected groups**
+
+**Important:**  
+- Tailor all probabilities to the event’s **unique evidence and uncertainty** — *never use default/template values.*  
+- Briefly justify each probability (1–2 sentences).
+
+---
+
+### 5️⃣ SOURCE & DATE VALIDATION (STRICT)
+1. Each event must have **≥2 full URLs** from different topical domains where possible.  
+2. For every URL in `"source"`, provide an exact matching `"date"`.  
+   - ✅ 3 URLs → 3 Dates (exact count match required)  
+3. Date format: **DD/MM/YYYY** (e.g., `"15/03/2024"`, NOT `"2024"` or `"March 2024"`).  
+4. Extract dates from article metadata or URL; if unavailable, default to `"01/01/2024"`.  
+5. No bare domains or year-only citations.
+
+---
+
+### 6️⃣ QUALITY & VALIDATION CHECKLIST
+- [ ] Not reported in past 2 weeks  
+- [ ] ≥2 full URLs (else mark as “Emerging” with low/medium confidence)  
+- [ ] URLs ↔ Dates count **exactly match**  
+- [ ] Dates formatted **DD/MM/YYYY**  
+- [ ] `description` ≥150 words  
+- [ ] `impact` ≥150 words, segmented by stakeholders  
+- [ ] `scenario` ≥500 chars, 4 cases, citations(for example: According to [URL],)
+- [ ] Includes quantitative data (% / $ / counts)  
+- [ ] `policy_intervention` includes multiple options with pros/cons & precedents  
+- [ ] Includes validation questions and monitoring metrics  
+
+---
+
+### 7️⃣ SPECIAL HANDLING
+If only **one credible source** exists:
+- Label event as **"Emerging"** or **"Weak Signal"**  
+- Set confidence: `"Medium"` or `"Low"` (never `"High"`)  
+- Add justification: why only one source  
+- Recommend follow-up actions (e.g., `"Monitor forums"`, `"Track additional reports"`)
+
+---
+
+### FINAL OUTPUT
+- Return ONLY the raw JSON object (no markdown).  
+- Schema compliance is mandatory — failure to match counts, formats, or lengths will invalidate output.
 
 {{format_instructions}}
-
 """
+
 
 # Around line 200-260, your Stage 2 prompt should be:
 # Use LLM directly for final synthesis (not agent, to avoid more searches)
@@ -1068,13 +567,21 @@ while retry_count < MAX_RETRIES and structured_response is None:
         prediction_output = llm.invoke(formatted_messages)
         output_text = prediction_output.content
 
-        # DEBUG: Print the raw LLM output before parsing
-        print("\n" + "="*80)
-        print(f"📝 DEBUG: RAW LLM OUTPUT (Stage 2) - Attempt {retry_count + 1}")
-        print("="*80)
-        print(output_text[:2000])  # Print up to 2000 chars for readability
-        print("\n" + "="*80)
-
+        # DEBUG: Save and print the FULL raw LLM output
+        debug_file = f"debug_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        with open(debug_file, 'w', encoding='utf-8') as f:
+            f.write("="*80 + "\n")
+            f.write(f"📝 DEBUG: RAW LLM OUTPUT (Stage 2) - Attempt {retry_count + 1}\n")
+            f.write("="*80 + "\n")
+            f.write(output_text)
+            f.write("\n" + "="*80 + "\n")
+            f.write(f"✅ Prediction generated: {len(output_text)} characters\n")
+            f.write("="*80 + "\n")
+        
+        print(f"\n💾 Full LLM output saved to: {debug_file}")
+        print(f"✅ Prediction generated: {len(output_text)} characters")
+        print(f"📝 Preview (first 500 chars):\n{output_text[:500]}...")
+        print(f"📝 Preview (last 500 chars):\n...{output_text[-500:]}")
 
         # Parse the response
         print("" + "="*80)
@@ -1106,14 +613,92 @@ while retry_count < MAX_RETRIES and structured_response is None:
         structured_response = parser.parse(json_text)
         print(f"✅ Pydantic validation successful on attempt {retry_count + 1}")
         
+        # POST-PARSE VALIDATION: Check date-URL matching
+        print("\n" + "="*80)
+        print("🔍 POST-PARSE VALIDATION: Checking Date-URL Matching")
+        print("="*80)
+        
+        validation_errors = []
+        for idx, event in enumerate(structured_response.events, 1):
+            event_name = event.event[:60]
+            
+            # Get URL count
+            if isinstance(event.source, list):
+                url_count = len(event.source)
+            elif isinstance(event.source, str):
+                # Handle comma-separated string
+                url_count = len([s.strip() for s in event.source.split(',') if s.strip()])
+            else:
+                url_count = 0
+            
+            # Get date count
+            date_count = len(event.date) if event.date else 0
+            
+            print(f"Event {idx}: {event_name}")
+            print(f"   URLs: {url_count}, Dates: {date_count}")
+            
+            # Check if counts match
+            if url_count != date_count:
+                error_msg = f"Event {idx} '{event_name}': URL count ({url_count}) ≠ Date count ({date_count})"
+                validation_errors.append(error_msg)
+                print(f"   ❌ MISMATCH: {error_msg}")
+            else:
+                print(f"   ✅ Match: {url_count} URLs = {date_count} dates")
+            
+            # Check date format
+            for i, date_str in enumerate(event.date, 1):
+                if '/' in date_str and len(date_str.split('/')) == 3:
+                    print(f"   ✅ Date {i}: {date_str} (correct format)")
+                else:
+                    error_msg = f"Event {idx} '{event_name}': Date {i} '{date_str}' not in DD/MM/YYYY format"
+                    validation_errors.append(error_msg)
+                    print(f"   ❌ WRONG FORMAT: Date {i}: {date_str}")
+        
+        # If validation errors found, decide whether to retry or continue
+        if validation_errors:
+            print("\n" + "="*80)
+            print(f"⚠️ FOUND {len(validation_errors)} VALIDATION ERRORS:")
+            print("="*80)
+            for err in validation_errors:
+                print(f"   - {err}")
+            
+            # If we have retries left, raise an error to trigger retry
+            if retry_count < MAX_RETRIES - 1:
+                raise ValueError(f"Date-URL validation failed with {len(validation_errors)} errors. Retrying with clearer instructions.")
+            else:
+                print("\n⚠️ WARNING: Proceeding with validation errors (max retries reached)")
+        else:
+            print("\n✅ All events passed date-URL validation!")
+        
+        print("="*80 + "\n")
+        
     except Exception as e:
         retry_count += 1
         last_error = str(e)
         print(f"❌ Parsing failed on attempt {retry_count}: {e}")
         
+        # Save the problematic output for debugging
+        error_file = f"debug_parse_error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        with open(error_file, 'w', encoding='utf-8') as f:
+            f.write("="*80 + "\n")
+            f.write(f"❌ PARSING ERROR - Attempt {retry_count}\n")
+            f.write("="*80 + "\n")
+            f.write(f"Error: {e}\n\n")
+            f.write("="*80 + "\n")
+            f.write("FULL OUTPUT TEXT:\n")
+            f.write("="*80 + "\n")
+            f.write(output_text if 'output_text' in locals() else "No output_text available")
+            f.write("\n" + "="*80 + "\n")
+            f.write("JSON TEXT BEING PARSED:\n")
+            f.write("="*80 + "\n")
+            f.write(json_text if 'json_text' in locals() else "No json_text available")
+            f.write("\n" + "="*80 + "\n")
+        print(f"💾 Error details saved to: {error_file}")
+        
         if retry_count >= MAX_RETRIES:
             print(f"\n💥 FATAL: Failed to parse after {MAX_RETRIES} attempts")
             print(f"   Last error: {last_error}")
+            print(f"   Check {error_file} for full details")
             raise
         else:
             print(f"   Retrying with fresh LLM call...")
@@ -1189,17 +774,43 @@ if __name__ == '__main__':
             evolution_summaries = []
             for e in repeated_events:
                 event_name = e.event
-                # Collect descriptions from all previous reports (most recent first)
+                # Collect descriptions and dates from all previous reports (most recent first)
+                # Use FUZZY matching to find similar events in previous reports
                 desc_history = []
                 for f in all_files:
                     details = extract_event_details(f)
+                    # Check for exact match first
                     if event_name in details:
-                        desc_history.append(details[event_name])
+                        # Extract date from filename (format: research_output_YYYYMMDD_HHMMSS.json)
+                        try:
+                            date_str = f.replace('research_output_', '').replace('.json', '').split('_')[0]
+                            date_obj = datetime.strptime(date_str, '%Y%m%d')
+                            formatted_date = date_obj.strftime('%Y-%m-%d')
+                        except:
+                            formatted_date = 'Unknown date'
+                        desc_history.append((formatted_date, details[event_name]))
+                    else:
+                        # If no exact match, use fuzzy matching (same threshold as is_repeated_event)
+                        for prev_name, prev_desc in details.items():
+                            ratio = difflib.SequenceMatcher(None, event_name.lower(), prev_name.lower()).ratio()
+                            if ratio >= 0.7:
+                                try:
+                                    date_str = f.replace('research_output_', '').replace('.json', '').split('_')[0]
+                                    date_obj = datetime.strptime(date_str, '%Y%m%d')
+                                    formatted_date = date_obj.strftime('%Y-%m-%d')
+                                except:
+                                    formatted_date = 'Unknown date'
+                                desc_history.append((formatted_date, prev_desc))
+                                break  # Only take the first fuzzy match per file
+                
                 # Only keep up to 3 most recent descriptions for brevity
                 desc_history = desc_history[:3]
-                summary = f"{event_name} (seen {event_counter[event_name]} times)\n"
-                for i, desc in enumerate(desc_history, 1):
-                    summary += f"  [Prev #{i}] {desc[:200].replace('\n',' ')}{'...' if len(desc)>200 else ''}\n"
+                # Count should be at least 1 if it's flagged as repeated
+                occurrence_count = max(1, len(desc_history), event_counter.get(event_name, 0))
+                summary = f"{event_name} (seen {occurrence_count} time{'s' if occurrence_count != 1 else ''})\n"
+                for i, (date, desc) in enumerate(desc_history, 1):
+                    # Show full description instead of truncating
+                    summary += f"  [Prev #{i} - {date}] {desc.replace('\n',' ')}\n"
                 evolution_summaries.append(summary.strip())
             structured_response.repeated_events = evolution_summaries
         else:
@@ -1265,7 +876,6 @@ if __name__ == '__main__':
                 else:
                     print(f"   ✅ PASSED: {valid_url_count} valid URLs")
             
-                validation_failed = True
                 # Validate dates match URLs
                 print(f"   📅 Date Validation:")
                 print(f"      URLs: {url_count}, Dates: {date_count}")
@@ -1353,6 +963,29 @@ if __name__ == '__main__':
         print("" + "="*80)
         print("✅ FINAL PREDICTIVE INTELLIGENCE REPORT")
         print("="*80)
+        
+        # Update summary to reflect actual event counts after validation and deduplication
+        total_new_events = len(structured_response.events)
+        total_repeated_events = len(structured_response.repeated_events) if structured_response.repeated_events else 0
+        total_issues = total_new_events + total_repeated_events
+        
+        # Update the summary with accurate counts
+        old_summary = structured_response.summary
+        # Replace any mention of event counts with accurate numbers
+        import re
+        summary_updated = re.sub(
+            r'(\d+)\s+(emerging\s+)?issues?\s+(have\s+been\s+)?identified',
+            f'{total_issues} emerging issues have been identified',
+            old_summary,
+            flags=re.IGNORECASE
+        )
+        
+        # Add validation note if events were filtered
+        if total_new_events < 5:  # If we have fewer than expected
+            summary_updated += f" Note: {total_new_events} new events and {total_repeated_events} repeated events passed validation."
+        
+        structured_response.summary = summary_updated
+        
         # Highlight repeated topics if present
         if structured_response.repeated_events and len(structured_response.repeated_events) > 0:
             print("\n==============================")
