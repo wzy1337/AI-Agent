@@ -23,7 +23,7 @@ CSS = """
     .metadata-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.85rem; margin-right: 0.5rem; margin-bottom: 0.5rem; color: white; }
     .stButton>button { background-color: #1a5490; color: white; font-weight: bold; border-radius: 5px; padding: 0.5rem 2rem; }
     .stButton>button:hover { background-color: #2c5f8d; }
-    .running-indicator { background-color: #fff3cd; padding: 1rem; border-radius: 5px; border-left: 5px solid #ffaa00; margin-bottom: 1rem; }
+    .running-indicator { background-color: #000000; padding: 1rem; border-radius: 5px; border-left: 5px solid #ffaa00; margin-bottom: 1rem; }
 
     /* Consolidated Badge Colors */
     .relevance-high { background-color: #ff4444; }
@@ -121,7 +121,81 @@ def check_research_status():
     except Exception:
         return {'status': 'idle'}
 
-# run_research_backend is left as-is, as it handles platform-specific subprocess calls
+def run_research_backend():
+    """Run the main.py research script in background using subprocess"""
+    try:
+        import sys
+        
+        # Create a status file to track progress
+        status_file = Path('research_status.json')
+        
+        # Determine Python executable - use venv if available
+        python_exe = sys.executable
+        
+        # Check if we're in a venv and use the venv python
+        venv_python = Path('venv/Scripts/python.exe')
+        if venv_python.exists():
+            python_exe = str(venv_python.absolute())
+        
+        # For Windows, we need to use DETACHED_PROCESS to truly background it
+        # Also redirect output to log files
+        log_file = Path(f'research_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt')
+        
+        # Create initial status before starting process
+        status_file.write_text(json.dumps({
+            'status': 'starting',
+            'start_time': datetime.now().isoformat(),
+            'log_file': str(log_file)
+        }))
+        
+        # Open log file
+        log_handle = open(log_file, 'w', encoding='utf-8')
+        
+        # Run python main.py in a truly detached subprocess
+        if os.name == 'nt':  # Windows
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            process = subprocess.Popen(
+                [python_exe, 'main.py'],
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
+                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                cwd=os.getcwd(),
+                env={**os.environ, 'PYTHONIOENCODING': 'utf-8'},
+                close_fds=True  # Ensure file handles are closed in child
+            )
+        else:  # Unix/Linux/Mac
+            process = subprocess.Popen(
+                [python_exe, 'main.py'],
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                cwd=os.getcwd(),
+                env={**os.environ, 'PYTHONIOENCODING': 'utf-8'},
+                close_fds=True
+            )
+        
+        # Don't wait for the process - return immediately
+        # The file handle will be closed by the subprocess
+        
+        # Update status file with PID and log file
+        status_file.write_text(json.dumps({
+            'status': 'running',
+            'start_time': datetime.now().isoformat(),
+            'pid': process.pid,
+            'log_file': str(log_file)
+        }))
+        
+        return True
+        
+    except Exception as e:
+        status_file = Path('research_status.json')
+        status_file.write_text(json.dumps({
+            'status': 'error',
+            'error': str(e),
+            'end_time': datetime.now().isoformat()
+        }))
+        return False
 
 
 # --- UI Components Refactor ---
@@ -218,6 +292,47 @@ if 'cleared_stale_status' not in st.session_state:
     st.session_state['cleared_stale_status'] = True
 
 # Sidebar (Refactored to functions where possible)
+# Assuming these imports are at the top of your main file:
+# import streamlit as st
+# from datetime import datetime
+# from pathlib import Path
+# import time
+# from your_module import get_all_research_files, parse_timestamp, check_research_status, run_research_backend
+
+def display_log_with_wrapping(log_file_path: str):
+    """Displays the last 30 lines of a log file with forced text wrapping."""
+    log_path = Path(log_file_path)
+    if log_path.exists():
+        st.caption(f"📊 Log size: {log_path.stat().st_size:,} bytes")
+        
+        # Use a simple text area instead of expander for better sidebar compatibility
+        # Reverting to expander to maintain original UI structure, but use the wrapping fix.
+        with st.expander("📋 View Log (last 30 lines)", expanded=False):
+            try:
+                # 1. Read the last 30 lines of the log file
+                log_content = log_path.read_text(encoding='utf-8', errors='ignore').splitlines()[-30:]
+                
+                # 2. Use st.markdown with CSS to force text wrapping
+                styled_log = f"""
+                    <div style="
+                        border: 1px solid #333;
+                        padding: 10px;
+                        background-color: #0e1117; 
+                        font-family: monospace;
+                        white-space: pre-wrap; /* FORCES WRAPPING */
+                        max-height: 250px; /* Adjusted height for sidebar */
+                        overflow-y: auto;
+                    ">
+                        {'<br>'.join(log_content)}
+                    </div>
+                """
+                st.markdown(styled_log, unsafe_allow_html=True)
+                
+            except Exception as e: 
+                st.error(f"Cannot read log: {e}")
+
+
+# Sidebar (Refactored to functions where possible)
 with st.sidebar:
     st.markdown("## 🔍 CPF Research Intelligence")
     st.markdown("---")
@@ -226,6 +341,8 @@ with st.sidebar:
     st.markdown("### 📊 Select Report")
     research_files = get_all_research_files()
     file_options = {}
+    selected_file = None # Initialize selected_file
+    
     if research_files:
         for f in research_files:
             dt = parse_timestamp(f)
@@ -236,8 +353,7 @@ with st.sidebar:
         selected_file = file_options[selected_friendly]
     else:
         st.warning("No research files found. Run a research job first!")
-        selected_file = None
-    
+        
     st.markdown("---")
     
     # Run New Research
@@ -246,25 +362,24 @@ with st.sidebar:
     
     if status['status'] == 'running':
         st.markdown('<div class="running-indicator"><strong>⏳ Research Running...</strong><br>This may take 5-15 minutes.</div>', unsafe_allow_html=True)
+        
         # Display elapsed time (retained logic)
         try:
             start_time = datetime.fromisoformat(status['start_time'])
             elapsed = datetime.now() - start_time
             st.info(f"⏱️ Running for: {int(elapsed.total_seconds() / 60)}m {int(elapsed.total_seconds() % 60)}s")
-        except: pass
+        except: 
+            pass
 
-        # Display PID and log
-        if status.get('pid'): st.caption(f"🔢 Process ID: {status['pid']}")
-        if status.get('log_file'):
-            log_path = Path(status['log_file'])
-            if log_path.exists():
-                st.caption(f"📊 Log size: {log_path.stat().st_size:,} bytes")
-                with st.expander("📋 View Log (last 30 lines)", expanded=False):
-                    try:
-                        st.code(''.join(log_path.read_text(encoding='utf-8', errors='ignore').splitlines()[-30:]), language='text')
-                    except Exception as e: st.error(f"Cannot read log: {e}")
+        # Display PID and log (using the new function for log)
+        if status.get('pid'): 
+            st.caption(f"🔢 Process ID: {status['pid']}")
             
-        if st.button("🔄 Refresh Status"): st.rerun()
+        if status.get('log_file'):
+            display_log_with_wrapping(status['log_file']) 
+            
+        if st.button("🔄 Refresh Status"): 
+            st.rerun()
 
     elif status['status'] == 'completed':
         st.success("✅ Research completed!")
@@ -280,7 +395,7 @@ with st.sidebar:
             
     else:
         if st.button("▶️ Start Research Job", type="primary"):
-            # run_research_backend() # Assuming this function is available and correct
+            run_research_backend()
             st.success("✅ Research job started!")
             time.sleep(1)
             st.rerun()
@@ -310,8 +425,36 @@ if selected_file:
             with st.expander("🔁 Repeated Topics from Previous Reports", expanded=False):
                 st.markdown("These topics have appeared in recent reports:")
                 for summary in repeated_events:
-                    st.markdown(f"**{summary.split('(seen')[0].strip()}**")
-                    st.markdown(summary)
+                    # Extract the event title and occurrence count
+                    title_part = summary.split('(seen')[0].strip()
+                    count_part = summary.split('(seen')[1].split(')')[0].strip() if '(seen' in summary else ''
+                    
+                    st.markdown(f"**{title_part}**")
+                    st.caption(f"Seen {count_part})" if count_part else "")
+                    
+                    # Parse and display previous occurrences with dates
+                    lines = summary.split('\n')
+                    if len(lines) > 1:
+                        st.markdown("**Previous Occurrences:**")
+                        for line in lines[1:]:
+                            if line.strip().startswith('[Prev'):
+                                # Extract date and description
+                                # Format: [Prev #1 - 2025-11-15] Description...
+                                parts = line.split('] ', 1)
+                                if len(parts) == 2:
+                                    header = parts[0].replace('[Prev #', '').strip()
+                                    description = parts[1].strip()
+                                    
+                                    # Extract occurrence number and date
+                                    if ' - ' in header:
+                                        occ_num, date = header.split(' - ', 1)
+                                        st.markdown(f"**📅 {date}** (Occurrence #{occ_num})")
+                                    else:
+                                        st.markdown(f"**Occurrence #{header.split(' - ')[0]}**")
+                                    
+                                    st.markdown(f"> {description}")
+                                    st.markdown("")
+                    
                     st.markdown("---")
         
         # Filters
