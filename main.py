@@ -21,6 +21,8 @@ import re
 import difflib
 from collections import Counter
 
+st.write(f"LangChain Version: {langchain.__version__}")
+
 # Import from new modular structure
 from config import (
     NOW, ONE_YEAR_AGO_INT, CURRENT_DATETIME_STR,
