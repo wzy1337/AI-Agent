@@ -1,22 +1,18 @@
 streamlit
-# Core LangChain - Pinning these to 0.2+ is crucial
-langchain>=0.2.0
-langchain-community>=0.2.0
-langchain-core>=0.2.0
-langchain-openai>=0.1.7
-langchain-anthropic>=0.1.13
-langchain-text-splitters>=0.2.0
+# STRICT PINS to prevent installing v1.0+
+langchain==0.2.16
+langchain-community==0.2.16
+langchain-core==0.2.38
+langchain-text-splitters==0.2.0
+langchain-openai==0.1.23
+langchain-anthropic>=0.1.15
 
-# Tools & Search
+# Tools & Utilities
+wikipedia
 duckduckgo-search
 tavily-python
-wikipedia
-
-# Utilities
 python-dotenv
-python-dateutil
-psutil
-reportlab
-
-# Evaluation (The likely cause of the downgrade)
 pydantic>=2.7.0
+python-dateutil
+reportlab
+psutil
