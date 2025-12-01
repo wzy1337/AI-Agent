@@ -726,7 +726,8 @@ if __name__ == '__main__':
                 summary = f"{event_name} (seen {occurrence_count} time{'s' if occurrence_count != 1 else ''})\n"
                 for i, (date, desc) in enumerate(desc_history, 1):
                     # Show full description instead of truncating
-                    summary += f"  [Prev #{i} - {date}] {desc.replace('\n',' ')}\n"
+                    desc_clean = desc.replace('\n', ' ')
+                    summary += f"  [Prev #{i} - {date}] {desc_clean}\n"
                 evolution_summaries.append(summary.strip())
             structured_response.repeated_events = evolution_summaries
         else:
