@@ -1,14 +1,24 @@
-langchain 
-wikipedia 
-langchain-community 
-langchain-openai
-langchain-anthropic
-python-dotenv
-pydantic
-duckduckgo-search
-python-dateutil
-ragas
-reportlab
 streamlit
+# Core LangChain - Pinning these to 0.2+ is crucial
+langchain>=0.2.0
+langchain-community>=0.2.0
+langchain-core>=0.2.0
+langchain-openai>=0.1.7
+langchain-anthropic>=0.1.13
+langchain-text-splitters>=0.2.0
+
+# Tools & Search
+duckduckgo-search
 tavily-python
-psutil  # Optional: for better process management in Streamlit dashboard
+wikipedia
+
+# Utilities
+python-dotenv
+python-dateutil
+psutil
+reportlab
+
+# Evaluation (The likely cause of the downgrade)
+# We pin ragas to a recent version to ensure it supports LangChain 0.2
+ragas>=0.1.9
+pydantic>=2.7.0
