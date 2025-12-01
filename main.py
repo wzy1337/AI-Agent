@@ -25,8 +25,7 @@ from collections import Counter
 from config import (
     NOW, ONE_YEAR_AGO_INT, CURRENT_DATETIME_STR,
     LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS,
-    MIN_YEAR_FILTER, FUZZY_MATCH_THRESHOLD, MIN_URLS_PER_EVENT,
-    KNOWLEDGE_QUERIES
+    MIN_YEAR_FILTER, FUZZY_MATCH_THRESHOLD, MIN_URLS_PER_EVENT
 )
 from models import Event, ResearchResponse
 from utils.date_utils import (
@@ -75,6 +74,7 @@ print("="*80)
 # System Prompt
 # -----------------------------
 stage1_system_prompt_template = """
+
 You are an elite research assistant specializing in CPF policy analysis and ground sensing of emerging issues in Singapore.
 
 Current date: {current_date_time}
@@ -84,9 +84,10 @@ Current date: {current_date_time}
 - Focus strictly on information from {one_year_ago} to {current_date_time}. REJECT and IGNORE any articles or data from before {one_year_ago}.
 - Perform search using *tavily_tool* to find relevant articles with URLs
 - Use *tavily_extract_tool* to verify article publication dates and extract full metadata from URLs
-- The tavily_extract_tool will AUTOMATICALLY REJECT articles published before 2024
+- The tavily_extract_tool will AUTOMATICALLY REJECT articles published before {min_year_filter}
 - If an article is rejected by tavily_extract_tool due to old publication date, search for more recent sources
 - Always verify article dates using tavily_extract_tool before including them in your knowledge base
+
 
 """
 
@@ -99,7 +100,9 @@ stage1_prompt = ChatPromptTemplate.from_messages(
     ]
 ).partial(
     current_date_time=current_datetime_str, # Add this line
-    one_year_ago=one_year_ago_int  # ADD THIS LINE
+    one_year_ago=one_year_ago_int,  # ADD THIS LINE
+    min_year_filter=MIN_YEAR_FILTER,  # ADD THIS LINE
+    
 )
 
 
@@ -130,108 +133,21 @@ print("" + "="*80)
 print("🔍 STAGE 1: BUILDING KNOWLEDGE BASE")
 print("="*80)
 
-# "Singapore social media CPF discussions 2024 2025"
-# "Singapore social security changes 2024 2025"
+# Import knowledge queries from config
+from config import KNOWLEDGE_QUERIES
 
-
-knowledge_queries = [
-    # ============================================
-    # TIER 1: GLOBAL MACRO TRENDS & SYSTEMIC RISKS
-    # ============================================
-    {"query": "What are the biggest global economic, demographic, or geopolitical risks that could impact retirement systems and pension funds worldwide 2024-2025?", "label": "Global Macro: Systemic Risks to Retirement", "sentiment": "horizon"},
-    {"query": "What are international organizations (IMF, World Bank, OECD, BIS) warning about regarding pension sustainability and retirement adequacy 2024-2025?", "label": "Global Macro: International Warnings", "sentiment": "horizon"},
-    {"query": "What are the most significant pension crises, reforms, or failures happening globally 2024-2025? Include Europe, Asia, Americas, and emerging markets.", "label": "Global Macro: Pension Crises Worldwide", "sentiment": "horizon"},
-
-    
-    # ============================================
-    # TIER 2: CROSS-BORDER TRENDS & PRECEDENTS
-    # ============================================
-    {"query": "What innovative or experimental pension reforms are being tested in Nordic countries, UK, Australia, Canada, Japan 2024-2025?", "label": "International: Advanced Economy Experiments", "sentiment": "horizon"},
-    {"query": "What retirement and social security challenges are Asian countries (Japan, South Korea, Taiwan, Hong Kong, Malaysia) facing 2024-2025? Regional comparisons.", "label": "International: Asian Retirement Challenges", "sentiment": "horizon"},
-    {"query": "What lessons from international pension failures or controversies could apply to Singapore 2024-2025? Include UK, US, European cases.", "label": "International: Cautionary Tales & Failures", "sentiment": "horizon"},
-    {"query": "What are global think tanks and research institutions publishing about future-of-retirement and pension sustainability 2024-2025? Include Brookings, CSIS, Peterson Institute.", "label": "International: Think Tank Research", "sentiment": "horizon"},
-
-    # ============================================
-    # TIER 4: WEAK SIGNALS & FRINGE SOURCES
-    # ============================================
-    {"query": "What are the most surprising, unconventional, or contrarian views on retirement and pensions from blogs, podcasts, and alternative media 2024-2025?", "label": "Weak Signals: Alternative Media & Contrarians", "sentiment": "horizon"},
-    {"query": "What are early warning signals, emerging risks, or 'canary in the coal mine' indicators for retirement systems from forums, Reddit, Twitter/X 2024-2025?", "label": "Weak Signals: Social Media Early Warnings", "sentiment": "horizon"},
-    {"query": "What speculative scenarios, black swan events, or 'what if' analyses exist for pension and retirement systems 2024-2025? Include scenario planning.", "label": "Weak Signals: Black Swan Scenarios", "sentiment": "horizon"},
-    {"query": "What are fringe communities, subcultures, or movements saying about retirement (FIRE movement, anti-work, digital nomads) 2024-2025?", "label": "Weak Signals: Fringe Movements & Subcultures", "sentiment": "horizon"},
-    
-]
-
-
-
-# Gather knowledge from different time periods
-all_knowledge = []
-all_sources = []
-found_urls = []  # ADD THIS: Track URLs
-
-# -----------------------------
-# Analyze past two research reports for repeated topics
-# -----------------------------
-import glob
-from collections import Counter
-def get_all_research_files(max_n=20):
-    files = glob.glob("research_output_2025*.json")
-    files += glob.glob("research_output_2024*.json")
-    files = sorted(files, reverse=True)
-    return files[:max_n]
-
-def extract_event_names_list(filepath):
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        # Support both 'events' at top-level or inside 'ResearchResponse'
-        events = data.get('events')
-        if events is None and 'ResearchResponse' in data:
-            events = data['ResearchResponse'].get('events', [])
-        if not events:
-            return []
-        return [e.get('event') for e in events if 'event' in e]
-    except Exception as e:
-        print(f"[PAST REPORTS] Error reading {filepath}: {e}")
-        return []
-
-def extract_event_details(filepath):
-    """Return a dict of event name to description for a given report file."""
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        events = data.get('events')
-        if events is None and 'ResearchResponse' in data:
-            events = data['ResearchResponse'].get('events', [])
-        if not events:
-            return {}
-        return {e.get('event'): e.get('description', '') for e in events if 'event' in e}
-    except Exception as e:
-        print(f"[PAST REPORTS] Error reading {filepath}: {e}")
-        return {}
-
-
-# Get previous 2 weeks' event names (for filtering new vs repeated)
-recent_files = get_all_research_files(max_n=2)
-previous_events = set()
-for f in recent_files:
-    previous_events |= set(extract_event_names_list(f))
-
-# Define all_files and event_counter for repeated event evolution tracking
-all_files = get_all_research_files(max_n=2)
-all_event_names = []
-for f in all_files:
-    all_event_names.extend(extract_event_names_list(f))
-event_counter = Counter(all_event_names)
+# Get previous events using utility function (already imported from utils.file_utils)
+previous_events, event_counter, all_files = get_previous_events(max_files=2)
 
 # Gather knowledge from different time periods
 all_knowledge = []
 all_sources = []
 found_urls = []  # Track URLs
-url_metadata_dates = {}  # NEW: Track published dates from Tavily metadata
+url_metadata_dates = {}  # Track published dates from Tavily metadata
 
-for idx, kq in enumerate(knowledge_queries, 1):
+for idx, kq in enumerate(KNOWLEDGE_QUERIES, 1):
     sentiment_icon = {"positive": "✅", "negative": "⚠️", "neutral": "ℹ️", "sentiment": "💭"}.get(kq.get('sentiment', 'neutral'), "ℹ️")
-    print(f"📚 [{idx}/{len(knowledge_queries)}] {sentiment_icon} {kq['label']}")
+    print(f"📚 [{idx}/{len(KNOWLEDGE_QUERIES)}] {sentiment_icon} {kq['label']}")
     print(f"    Query: {kq['query']}")
     
     try:
@@ -367,7 +283,7 @@ print("="*80)
 
 # Create a mapping of URLs to their content
 url_to_content = {}
-for idx, kq in enumerate(knowledge_queries[:9], 1):
+for idx, kq in enumerate(KNOWLEDGE_QUERIES[:9], 1):
     output = all_sources[idx-1] if idx-1 < len(all_sources) else ""
     urls_in_section = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', output)
     

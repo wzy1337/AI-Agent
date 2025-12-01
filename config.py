@@ -25,7 +25,7 @@ MAX_RETRIES = 3  # Retry attempts for parsing failures
 # ============================================
 # Research Configuration
 # ============================================
-MIN_YEAR_FILTER = 2024  # Only include sources from this year onwards
+MIN_YEAR_FILTER = NOW.year -1  # Dynamically uses current year (2025)
 MAX_PAST_REPORTS = 2  # Number of past reports to compare for deduplication
 FUZZY_MATCH_THRESHOLD = 0.7  # Similarity threshold for repeated event detection
 MIN_URLS_PER_EVENT = 3  # Minimum number of source URLs required per event
@@ -44,11 +44,6 @@ KNOWLEDGE_QUERIES_TIER1 = [
         "label": "Global Macro: International Warnings",
         "sentiment": "horizon"
     },
-    {
-        "query": "What are the most significant pension crises, reforms, or failures happening globally 2024-2025? Include Europe, Asia, Americas, and emerging markets.",
-        "label": "Global Macro: Pension Crises Worldwide",
-        "sentiment": "horizon"
-    },
 ]
 
 # ============================================
@@ -60,42 +55,13 @@ KNOWLEDGE_QUERIES_TIER2 = [
         "label": "International: Advanced Economy Experiments",
         "sentiment": "horizon"
     },
-    {
-        "query": "What retirement and social security challenges are Asian countries (Japan, South Korea, Taiwan, Hong Kong, Malaysia) facing 2024-2025? Regional comparisons.",
-        "label": "International: Asian Retirement Challenges",
-        "sentiment": "horizon"
-    },
-    {
-        "query": "What lessons from international pension failures or controversies could apply to Singapore 2024-2025? Include UK, US, European cases.",
-        "label": "International: Cautionary Tales & Failures",
-        "sentiment": "horizon"
-    },
-    {
-        "query": "What are global think tanks and research institutions publishing about future-of-retirement and pension sustainability 2024-2025? Include Brookings, CSIS, Peterson Institute.",
-        "label": "International: Think Tank Research",
-        "sentiment": "horizon"
-    },
+
 ]
 
 # ============================================
 # Knowledge Queries - Tier 3: Weak Signals
 # ============================================
 KNOWLEDGE_QUERIES_TIER3 = [
-    {
-        "query": "What are the most surprising, unconventional, or contrarian views on retirement and pensions from blogs, podcasts, and alternative media 2024-2025?",
-        "label": "Weak Signals: Alternative Media & Contrarians",
-        "sentiment": "horizon"
-    },
-    {
-        "query": "What are early warning signals, emerging risks, or 'canary in the coal mine' indicators for retirement systems from forums, Reddit, Twitter/X 2024-2025?",
-        "label": "Weak Signals: Social Media Early Warnings",
-        "sentiment": "horizon"
-    },
-    {
-        "query": "What speculative scenarios, black swan events, or 'what if' analyses exist for pension and retirement systems 2024-2025? Include scenario planning.",
-        "label": "Weak Signals: Black Swan Scenarios",
-        "sentiment": "horizon"
-    },
     {
         "query": "What are fringe communities, subcultures, or movements saying about retirement (FIRE movement, anti-work, digital nomads) 2024-2025?",
         "label": "Weak Signals: Fringe Movements & Subcultures",
