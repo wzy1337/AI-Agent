@@ -19,6 +19,4 @@ psutil
 reportlab
 
 # Evaluation (The likely cause of the downgrade)
-# We pin ragas to a recent version to ensure it supports LangChain 0.2
-ragas>=0.1.9
 pydantic>=2.7.0
