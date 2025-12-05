@@ -14,6 +14,14 @@ try:
 except ImportError:
     psutil = None
 
+# Cloud storage for reading historical data
+try:
+    from cloud_storage import sheets_storage, IS_STREAMLIT_CLOUD
+    CLOUD_ENABLED = True
+except ImportError:
+    CLOUD_ENABLED = False
+    IS_STREAMLIT_CLOUD = False
+
 # --- Configuration & CSS ---
 CSS = """
 <style>
@@ -44,7 +52,36 @@ RELEVANCE_MAP = {'high': 'relevance-high', 'medium': 'relevance-medium', 'med': 
 SIGNAL_MAP = {'established': 'signal-established', 'emerging': 'signal-emerging', 'weak': 'signal-weak'}
 
 def load_research_data(filepath):
-    """Load research data from JSON file or return None on error."""
+    """Load research data from JSON file or cloud storage."""
+    # Check if this is a cloud reference
+    if filepath.startswith("cloud:"):
+        if CLOUD_ENABLED:
+            try:
+                report_id = filepath.replace("cloud:", "")
+                events = sheets_storage.get_events_by_report(report_id)
+                # Convert to expected format
+                return {"events": [
+                    {
+                        "event": e.get("event_name", ""),
+                        "description": e.get("description", ""),
+                        "relevance": e.get("relevance", ""),
+                        "signal_strength": e.get("signal_strength", ""),
+                        "impact": e.get("impact", ""),
+                        "scenario": e.get("scenario", ""),
+                        "policy_intervention": e.get("policy_intervention", ""),
+                        "location": e.get("location", ""),
+                        "actors": e.get("actors", "").split(", ") if e.get("actors") else [],
+                        "confidence": e.get("confidence", ""),
+                        "source": e.get("sources", "").split(", ") if e.get("sources") else [],
+                        "date": e.get("dates", "").split(", ") if e.get("dates") else []
+                    } for e in events
+                ]}
+            except Exception as e:
+                st.error(f"Error loading from cloud: {e}")
+                return None
+        return None
+    
+    # Local file
     try:
         return json.loads(Path(filepath).read_text(encoding='utf-8'))
     except Exception as e:
@@ -69,7 +106,18 @@ def get_badge_html(label, value, badge_type):
 
 def get_all_research_files():
     """Get all research output JSON files sorted by date (newest first)."""
-    return sorted(glob.glob("research_output_*.json"), reverse=True)
+    local_files = sorted(glob.glob("research_output_*.json"), reverse=True)
+    
+    # On Streamlit Cloud, also check Google Sheets for reports
+    if CLOUD_ENABLED and IS_STREAMLIT_CLOUD and not local_files:
+        try:
+            cloud_reports = sheets_storage.get_all_reports(max_n=20)
+            # Return report_ids as pseudo-filenames for compatibility
+            return [f"cloud:{r.get('report_id')}" for r in cloud_reports]
+        except:
+            pass
+    
+    return local_files
 
 def parse_timestamp(filename):
     """Extract and format timestamp from filename."""

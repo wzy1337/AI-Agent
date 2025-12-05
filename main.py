@@ -44,6 +44,12 @@ from utils.file_utils import (
 from utils.pdf_export import save_research_output_as_pdf
 from stage1_knowledge import execute_knowledge_queries
 
+# Cloud storage for Streamlit Cloud deployment
+try:
+    from cloud_storage import save_to_cloud
+except ImportError:
+    save_to_cloud = None
+
 # Import API keys from sample.env file
 load_dotenv(dotenv_path="sample.env")
  
@@ -927,6 +933,15 @@ if __name__ == '__main__':
         with open(json_filename, 'w', encoding='utf-8') as f:
             f.write(_json.dumps(output_json, indent=2, ensure_ascii=False))
         print(f"💾 JSON saved to: {json_filename}")
+        
+        # Save to Google Sheets (cloud storage) if configured
+        if save_to_cloud:
+            try:
+                report_id = timestamp
+                save_to_cloud(output_json, report_id)
+                print(f"☁️ Synced to Google Sheets")
+            except Exception as cloud_err:
+                print(f"⚠️ Cloud sync failed (local save OK): {cloud_err}")
     
         # Save PDF
         print(f"\n📄 Generating PDF report...")

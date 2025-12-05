@@ -1,4 +1,7 @@
 streamlit
+gspread
+google-auth
+
 # STRICT PINS to prevent installing v1.0+
 langchain==0.2.16
 langchain-community==0.2.16
