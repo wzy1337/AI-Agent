@@ -385,6 +385,20 @@ with st.sidebar:
     st.markdown("## 🔍 CPF Research Intelligence")
     st.markdown("---")
     
+    # Cloud Storage Status
+    if CLOUD_ENABLED:
+        try:
+            if sheets_storage.initialize():
+                st.success("☁️ Google Sheets: Connected")
+            else:
+                st.warning("☁️ Google Sheets: Not configured")
+        except Exception as e:
+            st.error(f"☁️ Google Sheets Error: {e}")
+    else:
+        st.info("☁️ Cloud storage: Disabled (local mode)")
+    
+    st.markdown("---")
+    
     # Report Selection
     st.markdown("### 📊 Select Report")
     research_files = get_all_research_files()
