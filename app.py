@@ -63,6 +63,7 @@ def load_research_data(filepath):
                 return {"events": [
                     {
                         "event": e.get("event_name", ""),
+                        "category": e.get("category", ""),
                         "description": e.get("description", ""),
                         "relevance": e.get("relevance", ""),
                         "signal_strength": e.get("signal_strength", ""),

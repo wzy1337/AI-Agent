@@ -108,8 +108,8 @@ class GoogleSheetsStorage:
         # Events sheet - stores individual events
         if "Events" not in existing_sheets:
             events_sheet = self.spreadsheet.add_worksheet(title="Events", rows=1000, cols=20)
-            events_sheet.update('A1:N1', [[
-                'report_id', 'timestamp', 'event_name', 'description', 'relevance',
+            events_sheet.update('A1:O1', [[
+                'report_id', 'timestamp', 'event_name', 'category', 'description', 'relevance',
                 'signal_strength', 'impact', 'scenario', 'policy_intervention',
                 'location', 'actors', 'confidence', 'sources', 'dates'
             ]])
@@ -117,9 +117,9 @@ class GoogleSheetsStorage:
         # Reports sheet - stores report metadata
         if "Reports" not in existing_sheets:
             reports_sheet = self.spreadsheet.add_worksheet(title="Reports", rows=500, cols=10)
-            reports_sheet.update('A1:F1', [[
-                'report_id', 'timestamp', 'total_events', 'query_summary', 
-                'repeated_events_count', 'json_backup'
+            reports_sheet.update('A1:G1', [[
+                'report_id', 'timestamp', 'total_events', 'executive_summary',
+                'repeated_events_count', 'topic', 'json_backup'
             ]])
     
     def save_research_output(self, data: Dict[str, Any], report_id: str = None) -> str:
@@ -156,6 +156,7 @@ class GoogleSheetsStorage:
                     report_id,
                     timestamp,
                     event.get('event', ''),
+                    event.get('category', ''),
                     event.get('description', ''),
                     event.get('relevance', ''),
                     event.get('signal_strength', ''),
@@ -183,12 +184,22 @@ class GoogleSheetsStorage:
                 'repeated_events': data.get('repeated_events', [])
             }, ensure_ascii=False)
             
+            # Get executive summary from data
+            executive_summary = data.get('summary', '')
+            if not executive_summary and 'ResearchResponse' in data:
+                executive_summary = data['ResearchResponse'].get('summary', '')
+            
+            topic = data.get('topic', '')
+            if not topic and 'ResearchResponse' in data:
+                topic = data['ResearchResponse'].get('topic', '')
+            
             report_row = [
                 report_id,
                 timestamp,
                 len(events),
-                'Research run',
+                executive_summary[:50000] if executive_summary else '',  # Limit to 50KB
                 len(data.get('repeated_events', [])),
+                topic,
                 json_backup[:50000]  # Limit to 50KB per cell
             ]
             
