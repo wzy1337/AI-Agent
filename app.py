@@ -108,14 +108,24 @@ def get_all_research_files():
     """Get all research output JSON files sorted by date (newest first)."""
     local_files = sorted(glob.glob("research_output_*.json"), reverse=True)
     
-    # On Streamlit Cloud, also check Google Sheets for reports
-    if CLOUD_ENABLED and IS_STREAMLIT_CLOUD and not local_files:
+    # On Streamlit Cloud, check Google Sheets for reports
+    if CLOUD_ENABLED:
         try:
             cloud_reports = sheets_storage.get_all_reports(max_n=20)
             # Return report_ids as pseudo-filenames for compatibility
-            return [f"cloud:{r.get('report_id')}" for r in cloud_reports]
-        except:
-            pass
+            cloud_files = [f"cloud:{r.get('report_id')}" for r in cloud_reports if r.get('report_id')]
+            
+            # If on cloud with no local files, use cloud files
+            # If local files exist, combine them (local first, then cloud)
+            if not local_files:
+                return cloud_files
+            else:
+                # Combine: local files + cloud files not already in local
+                local_ids = set(f.replace("research_output_", "").replace(".json", "") for f in local_files)
+                unique_cloud = [f for f in cloud_files if f.replace("cloud:", "") not in local_ids]
+                return local_files + unique_cloud
+        except Exception as e:
+            st.warning(f"Could not load from Google Sheets: {e}")
     
     return local_files
 
