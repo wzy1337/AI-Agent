@@ -327,7 +327,7 @@ if hot_topic_urls:
 
 # Define the prediction query with URLs (Improved for direct action)
 prediction_query = f"""
-**ANALYZE & FORECAST**: Identify 10-15 high-priority, non-obvious (CANNOT BE MAINSTREAM PROBLEMS) emerging issues impacting CPF AND/OR its CPF members (2026-2035).
+**ANALYZE & FORECAST**: Identify 5-8 high-priority, non-obvious (CANNOT BE MAINSTREAM PROBLEMS) emerging issues impacting CPF AND/OR its CPF members (2026-2035).
 Prioritize *emerging* issues based on Urgency × Impact × Novelty.
 When searching for information on mainstream CPF issues, prioritize and include results from informal channels (e.g., forums, social media, community blogs, public comments) in addition to mainstream news sources. Highlight early warning signals, sentiment, and public concerns from these informal sources.
 

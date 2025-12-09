@@ -19,7 +19,7 @@ CURRENT_DATETIME_STR = NOW.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timez
 # ============================================
 LLM_MODEL = "gpt-4o"
 LLM_TEMPERATURE = 0  # Deterministic output
-LLM_MAX_TOKENS = 16000  # Increased to allow 8-10 complete events (~2000 tokens each)
+LLM_MAX_TOKENS = 16384  # Maximum output tokens for gpt-4o
 MAX_RETRIES = 3  # Retry attempts for parsing failures
 
 # ============================================
@@ -28,7 +28,7 @@ MAX_RETRIES = 3  # Retry attempts for parsing failures
 MIN_YEAR_FILTER = NOW.year -1  # Dynamically uses current year (2025)
 MAX_PAST_REPORTS = 2  # Number of past reports to compare for deduplication
 FUZZY_MATCH_THRESHOLD = 0.7  # Similarity threshold for repeated event detection
-MIN_URLS_PER_EVENT = 3  # Minimum number of source URLs required per event
+MIN_URLS_PER_EVENT = 1  # Minimum number of source URLs required per event
 
 # ============================================
 # Knowledge Queries - Tier 1: Global Macro Trends
