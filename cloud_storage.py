@@ -213,16 +213,33 @@ class GoogleSheetsStorage:
             return None
     
     def get_all_reports(self, max_n: int = 20) -> List[Dict]:
-        """Get list of all reports from Google Sheets."""
+        """Get list of all reports from Google Sheets (cached)."""
         if not self.initialize():
             return []
+        
+        # Use session state cache to reduce API calls
+        cache_key = "cloud_reports_cache"
+        cache_time_key = "cloud_reports_cache_time"
+        cache_ttl = 300  # 5 minutes
+        
+        # Check if we have valid cached data
+        if cache_key in st.session_state and cache_time_key in st.session_state:
+            cache_age = (datetime.now() - st.session_state[cache_time_key]).total_seconds()
+            if cache_age < cache_ttl:
+                records = st.session_state[cache_key]
+                return records[:max_n]
             
         try:
             reports_sheet = self.spreadsheet.worksheet("Reports")
             records = reports_sheet.get_all_records()
             
-            # Sort by timestamp descending and limit
+            # Sort by timestamp descending
             records.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+            
+            # Cache the results
+            st.session_state[cache_key] = records
+            st.session_state[cache_time_key] = datetime.now()
+            
             return records[:max_n]
             
         except Exception as e:
@@ -230,29 +247,63 @@ class GoogleSheetsStorage:
             return []
     
     def get_events_by_report(self, report_id: str) -> List[Dict]:
-        """Get all events for a specific report."""
+        """Get all events for a specific report (cached)."""
         if not self.initialize():
             return []
-            
-        try:
-            events_sheet = self.spreadsheet.worksheet("Events")
-            records = events_sheet.get_all_records()
-            
-            # Filter by report_id
-            return [r for r in records if r.get('report_id') == report_id]
-            
-        except Exception as e:
-            st.error(f"❌ Failed to get events: {e}")
-            return []
+        
+        # Use session state cache to reduce API calls
+        cache_key = "cloud_events_cache"
+        cache_time_key = "cloud_events_cache_time"
+        cache_ttl = 300  # 5 minutes
+        
+        # Check if we have valid cached data
+        all_events = None
+        if cache_key in st.session_state and cache_time_key in st.session_state:
+            cache_age = (datetime.now() - st.session_state[cache_time_key]).total_seconds()
+            if cache_age < cache_ttl:
+                all_events = st.session_state[cache_key]
+        
+        if all_events is None:
+            try:
+                events_sheet = self.spreadsheet.worksheet("Events")
+                all_events = events_sheet.get_all_records()
+                
+                # Cache the results
+                st.session_state[cache_key] = all_events
+                st.session_state[cache_time_key] = datetime.now()
+                
+            except Exception as e:
+                st.error(f"❌ Failed to get events: {e}")
+                return []
+        
+        # Filter by report_id
+        return [r for r in all_events if r.get('report_id') == report_id]
     
     def get_all_events(self, max_n: int = 500) -> List[Dict]:
-        """Get all events across all reports."""
+        """Get all events across all reports (cached)."""
         if not self.initialize():
             return []
+        
+        # Use session state cache to reduce API calls
+        cache_key = "cloud_events_cache"
+        cache_time_key = "cloud_events_cache_time"
+        cache_ttl = 300  # 5 minutes
+        
+        # Check if we have valid cached data
+        if cache_key in st.session_state and cache_time_key in st.session_state:
+            cache_age = (datetime.now() - st.session_state[cache_time_key]).total_seconds()
+            if cache_age < cache_ttl:
+                records = st.session_state[cache_key]
+                records.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+                return records[:max_n]
             
         try:
             events_sheet = self.spreadsheet.worksheet("Events")
             records = events_sheet.get_all_records()
+            
+            # Cache the results
+            st.session_state[cache_key] = records
+            st.session_state[cache_time_key] = datetime.now()
             
             # Sort by timestamp descending
             records.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
