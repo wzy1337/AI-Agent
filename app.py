@@ -59,24 +59,34 @@ def load_research_data(filepath):
             try:
                 report_id = filepath.replace("cloud:", "")
                 events = sheets_storage.get_events_by_report(report_id)
+                
+                # Also get report metadata (for executive summary, topic, etc.)
+                reports = sheets_storage.get_all_reports(max_n=100)
+                report_meta = next((r for r in reports if r.get('report_id') == report_id), {})
+                
                 # Convert to expected format
-                return {"events": [
-                    {
-                        "event": e.get("event_name", ""),
-                        "category": e.get("category", ""),
-                        "description": e.get("description", ""),
-                        "relevance": e.get("relevance", ""),
-                        "signal_strength": e.get("signal_strength", ""),
-                        "impact": e.get("impact", ""),
-                        "scenario": e.get("scenario", ""),
-                        "policy_intervention": e.get("policy_intervention", ""),
-                        "location": e.get("location", ""),
-                        "actors": e.get("actors", "").split(", ") if e.get("actors") else [],
-                        "confidence": e.get("confidence", ""),
-                        "source": e.get("sources", "").split(", ") if e.get("sources") else [],
-                        "date": e.get("dates", "").split(", ") if e.get("dates") else []
-                    } for e in events
-                ]}
+                return {
+                    "events": [
+                        {
+                            "event": e.get("event_name", ""),
+                            "category": e.get("category", ""),
+                            "description": e.get("description", ""),
+                            "relevance": e.get("relevance", ""),
+                            "signal_strength": e.get("signal_strength", ""),
+                            "impact": e.get("impact", ""),
+                            "scenario": e.get("scenario", ""),
+                            "policy_intervention": e.get("policy_intervention", ""),
+                            "location": e.get("location", ""),
+                            "actors": e.get("actors", "").split(", ") if e.get("actors") else [],
+                            "confidence": e.get("confidence", ""),
+                            "source": e.get("sources", "").split(", ") if e.get("sources") else [],
+                            "date": e.get("dates", "").split(", ") if e.get("dates") else []
+                        } for e in events
+                    ],
+                    "summary": report_meta.get("executive_summary", ""),
+                    "topic": report_meta.get("topic", ""),
+                    "repeated_events": []  # Not stored in simple format
+                }
             except Exception as e:
                 st.error(f"Error loading from cloud: {e}")
                 return None
@@ -113,6 +123,12 @@ def get_all_research_files():
     if CLOUD_ENABLED:
         try:
             cloud_reports = sheets_storage.get_all_reports(max_n=20)
+            # Debug: show what we got
+            if not cloud_reports:
+                st.sidebar.caption("📋 No reports found in Google Sheets")
+            else:
+                st.sidebar.caption(f"📋 Found {len(cloud_reports)} cloud reports")
+            
             # Return report_ids as pseudo-filenames for compatibility
             cloud_files = [f"cloud:{r.get('report_id')}" for r in cloud_reports if r.get('report_id')]
             
@@ -131,9 +147,14 @@ def get_all_research_files():
     return local_files
 
 def parse_timestamp(filename):
-    """Extract and format timestamp from filename."""
+    """Extract and format timestamp from filename or cloud report ID."""
     try:
-        ts_str = filename.replace('research_output_', '').replace('.json', '')
+        # Handle cloud:YYYYMMDD_HHMMSS format
+        if filename.startswith("cloud:"):
+            ts_str = filename.replace('cloud:', '')
+        else:
+            # Handle research_output_YYYYMMDD_HHMMSS.json format
+            ts_str = filename.replace('research_output_', '').replace('.json', '')
         return datetime.strptime(ts_str, '%Y%m%d_%H%M%S')
     except:
         return None
