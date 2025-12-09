@@ -205,12 +205,22 @@ class GoogleSheetsStorage:
             
             reports_sheet.append_row(report_row, value_input_option='USER_ENTERED')
             
+            # Clear cache so new data is visible immediately
+            self.clear_cache()
+            
             st.success(f"☁️ Saved {len(events)} events to Google Sheets (Report: {report_id})")
             return report_id
             
         except Exception as e:
             st.error(f"❌ Failed to save to Google Sheets: {e}")
             return None
+    
+    def clear_cache(self):
+        """Clear the cache so fresh data is fetched on next request."""
+        for key in ["cloud_reports_cache", "cloud_reports_cache_time", 
+                    "cloud_events_cache", "cloud_events_cache_time"]:
+            if key in st.session_state:
+                del st.session_state[key]
     
     def get_all_reports(self, max_n: int = 20) -> List[Dict]:
         """Get list of all reports from Google Sheets (cached)."""
