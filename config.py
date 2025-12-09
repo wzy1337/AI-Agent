@@ -17,7 +17,7 @@ CURRENT_DATETIME_STR = NOW.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timez
 # ============================================
 # LLM Configuration
 # ============================================
-LLM_MODEL = "gpt-4o-mini"
+LLM_MODEL = "gpt-4o"
 LLM_TEMPERATURE = 0  # Deterministic output
 LLM_MAX_TOKENS = 16000  # Increased to allow 8-10 complete events (~2000 tokens each)
 MAX_RETRIES = 3  # Retry attempts for parsing failures
