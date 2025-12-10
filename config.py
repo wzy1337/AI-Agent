@@ -59,21 +59,10 @@ KNOWLEDGE_QUERIES_TIER = [
     # ============================================
     # TIER 3: TECHNOLOGY & DISRUPTION
     # ============================================
-    {"query": f"AI automation replacing jobs impact on retirement savings pension contributions {YEAR_RANGE}", "label": "Tech Disruption: AI Job Displacement", "sentiment": "horizon"},
-    {"query": f"Gig economy platform workers retirement coverage gaps social security {YEAR_RANGE}", "label": "Tech Disruption: Gig Economy Gaps", "sentiment": "horizon"},
     {"query": f"Fintech crypto DeFi tokenization innovations retirement planning pension management {YEAR_RANGE}", "label": "Tech Disruption: Fintech & Web3 Pensions", "sentiment": "horizon"},
     {"query": f"Cybersecurity risks data breaches pension funds retirement systems {YEAR_RANGE}", "label": "Tech Disruption: Cyber Risks to Pensions", "sentiment": "horizon"},
     {"query": f"Longevity breakthroughs aging science living to 100 retirement planning implications {YEAR_RANGE}", "label": "Tech Disruption: Longevity & Healthtech", "sentiment": "horizon"},
     
-    # ============================================
-    # TIER 4: WEAK SIGNALS & FRINGE SOURCES
-    # ============================================
-    {"query": f"Surprising unconventional contrarian views retirement pensions alternative media blogs podcasts {YEAR_RANGE}", "label": "Weak Signals: Alternative Media & Contrarians", "sentiment": "horizon"},
-    {"query": f"site:reddit.com retirement pension CPF concerns complaints {CURRENT_YEAR}", "label": "Weak Signals: Reddit Discussions", "sentiment": "horizon"},
-    {"query": f"site:medium.com pension reform future of retirement crisis {CURRENT_YEAR}", "label": "Weak Signals: Medium Think Pieces", "sentiment": "horizon"},
-    {"query": f"Early warning signals emerging risks retirement systems social media Twitter forums {YEAR_RANGE}", "label": "Weak Signals: Social Media Early Warnings", "sentiment": "horizon"},
-    {"query": f"Black swan scenarios pension systems retirement what if speculative analysis {YEAR_RANGE}", "label": "Weak Signals: Black Swan Scenarios", "sentiment": "horizon"},
-    {"query": f"FIRE movement anti-work digital nomads retirement attitudes changing {YEAR_RANGE}", "label": "Weak Signals: Fringe Movements & Subcultures", "sentiment": "horizon"},
     
     # ============================================
     # TIER 5: ANOMALY & SURPRISE DETECTION
@@ -101,15 +90,7 @@ KNOWLEDGE_QUERIES_TIER = [
     {"query": f"Retirement is dead changing concept of retirement new models {YEAR_RANGE}", "label": "Narratives: Retirement Redefined", "sentiment": "horizon"},
     {"query": f"Public pension underfunding default risk warnings {YEAR_RANGE}", "label": "Narratives: Funding Crisis Warnings", "sentiment": "horizon"},
     
-    # ============================================
-    # TIER 8: SINGAPORE-SPECIFIC (Enhanced Scope)
-    # ============================================
-    {"query": f"Surprising under-discussed CPF retirement issues Singapore forums Reddit r/singapore {YEAR_RANGE}", "label": "Singapore: Non-Obvious Issues & Ground Sensing", "sentiment": "horizon"},
-    {"query": f"Singapore CPF reforms retirement challenges parliamentary debates ministers MPs {YEAR_RANGE}", "label": "Singapore: Policy Signals & Debates", "sentiment": "horizon"},
-    {"query": f"Singapore researchers LKYSPP IPS RSIS NUS SMU CPF retirement research {YEAR_RANGE}", "label": "Singapore: Academic & Research", "sentiment": "horizon"},
-    {"query": f"Singapore retirement challenges comparison regional neighbors advanced economies benchmarking {YEAR_RANGE}", "label": "Singapore: Comparative Analysis", "sentiment": "horizon"},
-    {"query": f"site:reddit.com/r/singapore CPF retirement concerns {CURRENT_YEAR}", "label": "Singapore: Reddit Ground Sensing", "sentiment": "horizon"},
-    
+
     # ============================================
     # TIER 9: EXPERT OPINIONS & THOUGHT LEADERSHIP
     # ============================================
