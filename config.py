@@ -25,65 +25,98 @@ MAX_RETRIES = 3  # Retry attempts for parsing failures
 # ============================================
 # Research Configuration
 # ============================================
-MIN_YEAR_FILTER = NOW.year -1  # Dynamically uses current year (2025)
+MIN_YEAR_FILTER = NOW.year -1  # Dynamically uses current year
 MAX_PAST_REPORTS = 2  # Number of past reports to compare for deduplication
 FUZZY_MATCH_THRESHOLD = 0.7  # Similarity threshold for repeated event detection
 MIN_URLS_PER_EVENT = 1  # Minimum number of source URLs required per event
 
+# Dynamic year range for queries (e.g., "2024-2025" when current year is 2025)
+YEAR_RANGE = f"{NOW.year - 1}-{NOW.year}"
+CURRENT_YEAR = str(NOW.year)
+LAST_YEAR = str(NOW.year - 1)
+
 # ============================================
 # Knowledge Queries - Tier 1: Global Macro Trends
 # ============================================
-KNOWLEDGE_QUERIES_TIER= [
-    {"query": "What are the biggest global economic, demographic, or geopolitical risks that could impact retirement systems and pension funds worldwide 2024-2025?", "label": "Global Macro: Systemic Risks to Retirement", "sentiment": "horizon"},
-    {"query": "What are international organizations (IMF, World Bank, OECD, BIS) warning about regarding pension sustainability and retirement adequacy 2024-2025?", "label": "Global Macro: International Warnings", "sentiment": "horizon"},
-    {"query": "What are the most significant pension crises, reforms, or failures happening globally 2024-2025? Include Europe, Asia, Americas, and emerging markets.", "label": "Global Macro: Pension Crises Worldwide", "sentiment": "horizon"},
+KNOWLEDGE_QUERIES_TIER = [
+    # ============================================
+    # TIER 1: GLOBAL MACRO TRENDS & SYSTEMIC RISKS
+    # ============================================
+    {"query": f"Unexpected developments in global pension systems retirement funds {YEAR_RANGE}", "label": "Global Macro: Unexpected Developments", "sentiment": "horizon"},
+    {"query": f"Emerging concerns from IMF World Bank OECD BIS about pension sustainability retirement adequacy {YEAR_RANGE}", "label": "Global Macro: International Warnings", "sentiment": "horizon"},
+    {"query": f"Pension crises reforms failures backlash worldwide Europe Asia Americas {YEAR_RANGE}", "label": "Global Macro: Pension Crises Worldwide", "sentiment": "horizon"},
+    {"query": f"Global economic demographic geopolitical risks impacting retirement systems {YEAR_RANGE}", "label": "Global Macro: Systemic Risks", "sentiment": "horizon"},
     
     # ============================================
     # TIER 2: CROSS-BORDER TRENDS & PRECEDENTS
     # ============================================
-    {"query": "What innovative or experimental pension reforms are being tested in Nordic countries, UK, Australia, Canada, Japan 2024-2025?", "label": "International: Advanced Economy Experiments", "sentiment": "horizon"},
-    {"query": "What retirement and social security challenges are Asian countries (Japan, South Korea, Taiwan, Hong Kong, Malaysia) facing 2024-2025? Regional comparisons.", "label": "International: Asian Retirement Challenges", "sentiment": "horizon"},
-    {"query": "What lessons from international pension failures or controversies could apply to Singapore 2024-2025? Include UK, US, European cases.", "label": "International: Cautionary Tales & Failures", "sentiment": "horizon"},
-    {"query": "What are global think tanks and research institutions publishing about future-of-retirement and pension sustainability 2024-2025? Include Brookings, CSIS, Peterson Institute.", "label": "International: Think Tank Research", "sentiment": "horizon"},
+    {"query": f"Innovative experimental pension reforms Nordic countries Netherlands UK Australia Canada {YEAR_RANGE}", "label": "International: Advanced Economy Experiments", "sentiment": "horizon"},
+    {"query": f"Japan South Korea Taiwan Hong Kong Malaysia retirement social security challenges aging {YEAR_RANGE}", "label": "International: Asian Retirement Challenges", "sentiment": "horizon"},
+    {"query": f"Pension failures controversies scandals lessons UK US Europe {YEAR_RANGE}", "label": "International: Cautionary Tales & Failures", "sentiment": "horizon"},
+    {"query": f"Think tank research future of retirement pension sustainability Brookings CSIS Peterson Institute {YEAR_RANGE}", "label": "International: Think Tank Research", "sentiment": "horizon"},
+    {"query": f"Latin America pension reforms changes Chile Argentina Brazil {YEAR_RANGE}", "label": "International: Latin America Experiments", "sentiment": "horizon"},
     
     # ============================================
     # TIER 3: TECHNOLOGY & DISRUPTION
     # ============================================
-    {"query": "How are AI, automation, and gig economy disrupting traditional employment and retirement savings globally 2024-2025? Future of work implications.", "label": "Tech Disruption: AI & Future of Work", "sentiment": "horizon"},
-    {"query": "What are fintech, crypto, and web3 innovations in retirement planning and pension management 2024-2025? Include DeFi, tokenization, digital assets.", "label": "Tech Disruption: Fintech & Web3 Pensions", "sentiment": "horizon"},
-    {"query": "What are the cybersecurity risks, data breaches, or tech failures affecting pension funds and retirement systems 2024-2025?", "label": "Tech Disruption: Cyber Risks to Pensions", "sentiment": "horizon"},
-    {"query": "How are longevity breakthroughs, healthtech, and aging science changing retirement planning assumptions 2024-2025? Impact of living to 100+.", "label": "Tech Disruption: Longevity & Healthtech", "sentiment": "horizon"},
+    {"query": f"AI automation replacing jobs impact on retirement savings pension contributions {YEAR_RANGE}", "label": "Tech Disruption: AI Job Displacement", "sentiment": "horizon"},
+    {"query": f"Gig economy platform workers retirement coverage gaps social security {YEAR_RANGE}", "label": "Tech Disruption: Gig Economy Gaps", "sentiment": "horizon"},
+    {"query": f"Fintech crypto DeFi tokenization innovations retirement planning pension management {YEAR_RANGE}", "label": "Tech Disruption: Fintech & Web3 Pensions", "sentiment": "horizon"},
+    {"query": f"Cybersecurity risks data breaches pension funds retirement systems {YEAR_RANGE}", "label": "Tech Disruption: Cyber Risks to Pensions", "sentiment": "horizon"},
+    {"query": f"Longevity breakthroughs aging science living to 100 retirement planning implications {YEAR_RANGE}", "label": "Tech Disruption: Longevity & Healthtech", "sentiment": "horizon"},
     
     # ============================================
     # TIER 4: WEAK SIGNALS & FRINGE SOURCES
     # ============================================
-    {"query": "What are the most surprising, unconventional, or contrarian views on retirement and pensions from blogs, podcasts, and alternative media 2024-2025?", "label": "Weak Signals: Alternative Media & Contrarians", "sentiment": "horizon"},
-    {"query": "What are early warning signals, emerging risks, or 'canary in the coal mine' indicators for retirement systems from forums, Reddit, Twitter/X 2024-2025?", "label": "Weak Signals: Social Media Early Warnings", "sentiment": "horizon"},
-    {"query": "What speculative scenarios, black swan events, or 'what if' analyses exist for pension and retirement systems 2024-2025? Include scenario planning.", "label": "Weak Signals: Black Swan Scenarios", "sentiment": "horizon"},
-    {"query": "What are fringe communities, subcultures, or movements saying about retirement (FIRE movement, anti-work, digital nomads) 2024-2025?", "label": "Weak Signals: Fringe Movements & Subcultures", "sentiment": "horizon"},
+    {"query": f"Surprising unconventional contrarian views retirement pensions alternative media blogs podcasts {YEAR_RANGE}", "label": "Weak Signals: Alternative Media & Contrarians", "sentiment": "horizon"},
+    {"query": f"site:reddit.com retirement pension CPF concerns complaints {CURRENT_YEAR}", "label": "Weak Signals: Reddit Discussions", "sentiment": "horizon"},
+    {"query": f"site:medium.com pension reform future of retirement crisis {CURRENT_YEAR}", "label": "Weak Signals: Medium Think Pieces", "sentiment": "horizon"},
+    {"query": f"Early warning signals emerging risks retirement systems social media Twitter forums {YEAR_RANGE}", "label": "Weak Signals: Social Media Early Warnings", "sentiment": "horizon"},
+    {"query": f"Black swan scenarios pension systems retirement what if speculative analysis {YEAR_RANGE}", "label": "Weak Signals: Black Swan Scenarios", "sentiment": "horizon"},
+    {"query": f"FIRE movement anti-work digital nomads retirement attitudes changing {YEAR_RANGE}", "label": "Weak Signals: Fringe Movements & Subcultures", "sentiment": "horizon"},
     
     # ============================================
-    # TIER 5: INTERDISCIPLINARY & ADJACENT DOMAINS
+    # TIER 5: ANOMALY & SURPRISE DETECTION
     # ============================================
-    {"query": "How are climate change, environmental risks, and ESG factors affecting pension fund strategies and retirement security 2024-2025?", "label": "Adjacent: Climate & ESG Impact", "sentiment": "horizon"},
-    {"query": "What are behavioral economics and psychology insights on retirement savings behavior and pension engagement 2024-2025? Nudge theory applications.", "label": "Adjacent: Behavioral Economics", "sentiment": "horizon"},
-    {"query": "How are housing affordability crisis, real estate bubbles, and homeownership affecting retirement adequacy globally 2024-2025?", "label": "Adjacent: Housing & Retirement", "sentiment": "horizon"},
-    {"query": "What are healthcare cost inflation, long-term care crises, and medical bankruptcy implications for retirement planning 2024-2025?", "label": "Adjacent: Healthcare Costs & Retirement", "sentiment": "horizon"},
+    {"query": f"Surprising pension fund performance outliers controversies unexpected {YEAR_RANGE}", "label": "Anomalies: Unexpected Developments", "sentiment": "horizon"},
+    {"query": f"Pension retirement policy reversals U-turns abandoned experiments {YEAR_RANGE}", "label": "Anomalies: Policy Reversals", "sentiment": "horizon"},
+    {"query": f"Emerging retirement risks nobody is talking about underreported {YEAR_RANGE}", "label": "Anomalies: Underreported Risks", "sentiment": "horizon"},
+    {"query": f"Pension fund failures lawsuits scandals mismanagement {YEAR_RANGE}", "label": "Anomalies: Failures & Scandals", "sentiment": "horizon"},
     
     # ============================================
-    # TIER 6: SINGAPORE-SPECIFIC (Enhanced Scope)
+    # TIER 6: INTERDISCIPLINARY & ADJACENT DOMAINS
     # ============================================
-    {"query": "What are the most surprising or under-discussed CPF and retirement issues in Singapore 2024-2025? Include forums, social media, Reddit r/singapore.", "label": "Singapore: Non-Obvious Issues & Ground Sensing", "sentiment": "horizon"},
-    {"query": "What are Singapore policymakers, ministers, and MPs saying about CPF reforms and retirement challenges 2024-2025? Parliamentary debates.", "label": "Singapore: Policy Signals & Debates", "sentiment": "horizon"},
-    {"query": "What are Singaporean researchers, universities, and think tanks (LKYSPP, IPS, RSIS) publishing on CPF and retirement 2024-2025?", "label": "Singapore: Academic & Research", "sentiment": "horizon"},
-    {"query": "How do Singapore's retirement challenges compare to regional neighbors and advanced economies 2024-2025? Benchmarking and gap analysis.", "label": "Singapore: Comparative Analysis", "sentiment": "horizon"},
+    {"query": f"Climate change environmental risks ESG pension fund strategies retirement security {YEAR_RANGE}", "label": "Adjacent: Climate & ESG Impact", "sentiment": "horizon"},
+    {"query": f"Behavioral economics psychology retirement savings nudge theory pension engagement {YEAR_RANGE}", "label": "Adjacent: Behavioral Economics", "sentiment": "horizon"},
+    {"query": f"Housing affordability crisis real estate retirement adequacy homeownership {YEAR_RANGE}", "label": "Adjacent: Housing & Retirement", "sentiment": "horizon"},
+    {"query": f"Healthcare cost inflation long-term care crisis medical bankruptcy retirement {YEAR_RANGE}", "label": "Adjacent: Healthcare Costs & Retirement", "sentiment": "horizon"},
+    {"query": f"Insurance industry disruption affecting retirement annuities {YEAR_RANGE}", "label": "Adjacent: Insurance Disruption", "sentiment": "horizon"},
+    {"query": f"Banking sector changes impacting retirement savings products {YEAR_RANGE}", "label": "Adjacent: Banking Evolution", "sentiment": "horizon"},
     
     # ============================================
-    # TIER 7: EXPERT OPINIONS & THOUGHT LEADERSHIP
+    # TIER 7: NARRATIVE SHIFTS & PUBLIC DISCOURSE
     # ============================================
-    {"query": "What are leading economists, pension experts, and thought leaders predicting about retirement systems 2024-2025? Include Nobel laureates, IMF economists.", "label": "Expert Opinions: Leading Economists", "sentiment": "horizon"},
-    {"query": "What are investment managers, asset allocators, and sovereign wealth funds saying about pension fund strategies 2024-2025? BlackRock, Vanguard, GIC insights.", "label": "Expert Opinions: Investment Perspectives", "sentiment": "horizon"},
-    {"query": "What are demographic experts and population researchers warning about aging societies and pension sustainability 2024-2025?", "label": "Expert Opinions: Demographics & Aging", "sentiment": "horizon"},
+    {"query": f"Changing attitudes toward retirement age working longer public opinion {YEAR_RANGE}", "label": "Narratives: Retirement Age Debate", "sentiment": "horizon"},
+    {"query": f"Intergenerational fairness pension inequality young workers older generations {YEAR_RANGE}", "label": "Narratives: Generational Conflict", "sentiment": "horizon"},
+    {"query": f"Retirement is dead changing concept of retirement new models {YEAR_RANGE}", "label": "Narratives: Retirement Redefined", "sentiment": "horizon"},
+    {"query": f"Public pension underfunding default risk warnings {YEAR_RANGE}", "label": "Narratives: Funding Crisis Warnings", "sentiment": "horizon"},
+    
+    # ============================================
+    # TIER 8: SINGAPORE-SPECIFIC (Enhanced Scope)
+    # ============================================
+    {"query": f"Surprising under-discussed CPF retirement issues Singapore forums Reddit r/singapore {YEAR_RANGE}", "label": "Singapore: Non-Obvious Issues & Ground Sensing", "sentiment": "horizon"},
+    {"query": f"Singapore CPF reforms retirement challenges parliamentary debates ministers MPs {YEAR_RANGE}", "label": "Singapore: Policy Signals & Debates", "sentiment": "horizon"},
+    {"query": f"Singapore researchers LKYSPP IPS RSIS NUS SMU CPF retirement research {YEAR_RANGE}", "label": "Singapore: Academic & Research", "sentiment": "horizon"},
+    {"query": f"Singapore retirement challenges comparison regional neighbors advanced economies benchmarking {YEAR_RANGE}", "label": "Singapore: Comparative Analysis", "sentiment": "horizon"},
+    {"query": f"site:reddit.com/r/singapore CPF retirement concerns {CURRENT_YEAR}", "label": "Singapore: Reddit Ground Sensing", "sentiment": "horizon"},
+    
+    # ============================================
+    # TIER 9: EXPERT OPINIONS & THOUGHT LEADERSHIP
+    # ============================================
+    {"query": f"Economists pension experts predictions retirement systems Nobel laureates IMF {YEAR_RANGE}", "label": "Expert Opinions: Leading Economists", "sentiment": "horizon"},
+    {"query": f"Investment managers sovereign wealth funds pension strategies BlackRock Vanguard GIC {YEAR_RANGE}", "label": "Expert Opinions: Investment Perspectives", "sentiment": "horizon"},
+    {"query": f"Demographic experts population researchers aging societies pension sustainability warnings {YEAR_RANGE}", "label": "Expert Opinions: Demographics & Aging", "sentiment": "horizon"},
+    {"query": f"Retirement savings shortfall crisis inadequacy warnings experts {YEAR_RANGE}", "label": "Expert Opinions: Adequacy Warnings", "sentiment": "horizon"},
 ]
 
 # Combine all knowledge queries
