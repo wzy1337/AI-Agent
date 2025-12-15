@@ -1,19 +1,22 @@
+# Streamlit Dashboard
 streamlit
+
+# Google Sheets (Cloud Storage)
 gspread
 google-auth
 
-# STRICT PINS to prevent installing v1.0+
+# LangChain - STRICT PINS to prevent v1.0+ breaking changes
 langchain==0.2.16
 langchain-community==0.2.16
 langchain-core==0.2.38
 langchain-text-splitters==0.2.0
 langchain-openai==0.1.23
-langchain-anthropic>=0.1.15
 
-# Tools & Utilities
-wikipedia
+# Search Tools
 duckduckgo-search
 tavily-python
+
+# Utilities
 python-dotenv
 pydantic>=2.7.0
 python-dateutil
