@@ -14,40 +14,67 @@ Does the following:
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐
-│   config.py     │  ← Define horizon scanning queries & settings
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐     ┌─────────────────┐
-│ stage1_         │────▶│   tools.py      │  ← Tavily Search API
-│ knowledge.py    │     │                 │    Wikipedia
-└────────┬────────┘     └─────────────────┘
-         │
-         ▼
-┌─────────────────┐     ┌─────────────────┐
-│   main.py       │────▶│   models.py     │  ← Pydantic schemas
-│   (LLM Agent)   │     │   (Event,       │    for structured output
-│                 │     │    Response)    │
-└────────┬────────┘     └─────────────────┘
-         │
-         │              ┌─────────────────┐
-         │              │   utils/        │
-         ├─────────────▶│   date_utils    │  ← Date filtering
-         │              │   file_utils    │  ← Deduplication
-         │              │   pdf_export    │  ← PDF generation
-         │              └─────────────────┘
-         ▼
-┌─────────────────┐     ┌─────────────────┐
-│   Output        │────▶│ cloud_storage   │  ← Google Sheets
-│   JSON + PDF    │     │   .py           │    (Streamlit Cloud)
-└────────┬────────┘     └─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│   app.py        │  ← Streamlit dashboard
-│   (Dashboard)   │    View reports & trigger scans
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        config.py                                │
+│              Define queries, LLM settings, thresholds           │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+══════════════════════════════╪═══════════════════════════════════
+  STAGE 1: KNOWLEDGE GATHERING
+══════════════════════════════╪═══════════════════════════════════
+                              ▼
+              ┌───────────────────────────────┐
+              │  main.py                      │
+              │  - Stage 1 LLM prompt         │
+              │  - Agent setup & tools        │──→ tools.py
+              └───────────────┬───────────────┘    (Tavily, Wikipedia)
+                              │
+                              ▼
+              ┌───────────────────────────────┐
+              │  stage1_knowledge.py          │
+              │  - Execute 13 queries         │
+              │  - URL extraction & filtering │──→ utils/date_utils.py
+              │  - Collect raw results        │
+              └───────────────┬───────────────┘
+                              │
+                              ▼
+              ┌───────────────────────────────┐
+              │  Raw Knowledge Base           │
+              │  (URLs, snippets, metadata)   │
+              └───────────────┬───────────────┘
+                              │
+══════════════════════════════╪═══════════════════════════════════
+  STAGE 2: LLM ANALYSIS & STRUCTURING
+══════════════════════════════╪═══════════════════════════════════
+                              ▼
+              ┌───────────────────────────────┐
+              │  main.py                      │
+              │  - Stage 2 LLM prompt         │
+              │  - GPT-4o analyzes knowledge  │──→ models.py
+              │  - Extract structured events  │    (Pydantic schemas to ensure desired structured output)
+              └───────────────┬───────────────┘
+                              │
+                              ▼
+              ┌───────────────────────────────┐
+              │  Deduplication & Filtering    │──→ utils/file_utils.py
+              │  Compare with past reports    │
+              │  Remove duplicates            │
+              └───────────────┬───────────────┘
+                              │
+══════════════════════════════╪═══════════════════════════════════
+  OUTPUT & PRESENTATION
+══════════════════════════════╪═══════════════════════════════════
+                              ▼
+              ┌───────────────────────────────┐
+              │  Generate JSON + PDF          │──→ utils/pdf_export.py
+              │  Save to Google Sheets        │──→ cloud_storage.py
+              └───────────────┬───────────────┘
+                              │
+                              ▼
+              ┌───────────────────────────────┐
+              │  app.py - Streamlit Dashboard │
+              │  View reports, trigger scans  │
+              └───────────────────────────────┘
 ```
 
 ## 🚀 Quick Start
