@@ -133,11 +133,14 @@ Go to your app → **Settings** → **Secrets** and add:
 OPENAI_API_KEY = "sk-..."
 TAVILY_API_KEY = "tvly-..."
 
-# Google Sheets Integration (Optional)
-# 1. Go to Google Cloud Console → Create Service Account
+# Google Sheets Integration
+# 1. Go to Google Cloud Console → Create new project
 # 2. Enable Google Sheets API & Google Drive API
-# 3. Download JSON key file
-# 4. Share your Google Sheet with the service account email
+# 3. Create Service Account- API & Services Credentials -> Create Credntials-> Service Account
+# 4. Create API Key: Click on service account-> Under 'key' section -> Add key-> Create new key->Json
+# 5. Download JSON key file
+# 6. Share your Google Sheet with the service account email
+# 7. Add relevant details onto streamlit secrets below
 
 # Sample Json key file
 [gcp_service_account]
@@ -154,7 +157,7 @@ token_uri = "https://oauth2.googleapis.com/token"
 spreadsheet_id = "your-spreadsheet-id-from-url"
 ```
 
-> 💡 **Tip:** Get the `spreadsheet_id` from your Google Sheet URL:  
+> 💡 **Note:** Get the `spreadsheet_id` from your Google Sheet URL:  
 > `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`
 
 ## 📁 Project Structure
