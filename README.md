@@ -1,4 +1,4 @@
-An GenAI-powered horizon scanning system for monitoring policy issues to automatically extract relevat events from online source. 
+An GenAI-powered horizon scanning system for monitoring policy issues to automatically extract relevant events from online source. 
 
 ## What It Does
 
@@ -27,7 +27,7 @@ Does the following:
               │  main.py                      │
               │  - Stage 1 LLM prompt         │
               │  - Agent setup & tools        │──→ tools.py
-              └───────────────┬───────────────┘    (Tavily, Wikipedia)
+              └───────────────┬───────────────┘    (Tavily, DuckDuckGo)
                               │
                               ▼
               ┌───────────────────────────────┐
@@ -211,6 +211,9 @@ The system searches across these tiers:
 | OpenAI | GPT-4o for analysis | [platform.openai.com](https://platform.openai.com) |
 | Tavily | Web search & extraction | [tavily.com](https://tavily.com) |
 | Google Sheets | Cloud storage | [Google Cloud Console](https://console.cloud.google.com) |
+
+## Dashboard Preview
+![Dashboard](images/dashboard.png)
 
 ## 🤝 Contributing
 
