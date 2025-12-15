@@ -213,7 +213,7 @@ The system searches across these tiers:
 | Google Sheets | Cloud storage | [Google Cloud Console](https://console.cloud.google.com) |
 
 ## Dashboard Preview
-![Dashboard](images/dashboard.png)
+![Dashboard](images/Dashboard.png)
 
 ## 🤝 Contributing
 
