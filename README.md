@@ -115,18 +115,47 @@ python main.py
 
 ## ☁️ Streamlit Cloud Deployment
 
-1. Push your code to GitHub (without API keys!)
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Deploy from your repo
-4. Add secrets in **Settings → Secrets**:
-   ```toml
-   OPENAI_API_KEY = "sk-..."
-   TAVILY_API_KEY = "tvly-..."
-   gcp_service_account="" download json from GCP
-   Spreadsheet_id="____" 
+### Step 1: Push to GitHub
+Push your code to GitHub (make sure API keys are NOT in your code!)
 
+### Step 2: Deploy on Streamlit Cloud
+1. Go to [share.streamlit.io](https://share.streamlit.io)
+2. Click **"New app"**
+3. Select your repo: `wzy1337/AI-Agent`
+4. Set main file path: `app.py`
+5. Click **Deploy**
 
-   ```
+### Step 3: Configure Secrets
+Go to your app → **Settings** → **Secrets** and add:
+
+```toml
+# Required API Keys
+OPENAI_API_KEY = "sk-..."
+TAVILY_API_KEY = "tvly-..."
+
+# Google Sheets Integration (Optional)
+# 1. Go to Google Cloud Console → Create Service Account
+# 2. Enable Google Sheets API & Google Drive API
+# 3. Download JSON key file
+# 4. Share your Google Sheet with the service account email
+
+# Sample Json key file
+[gcp_service_account]
+type = "service_account"
+project_id = "your-project-id"
+private_key_id = "your-key-id"
+private_key = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+client_email = "your-service-account@your-project.iam.gserviceaccount.com"
+client_id = "123456789"
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri = "https://oauth2.googleapis.com/token"
+
+[google_sheets]
+spreadsheet_id = "your-spreadsheet-id-from-url"
+```
+
+> 💡 **Tip:** Get the `spreadsheet_id` from your Google Sheet URL:  
+> `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`
 
 ## 📁 Project Structure
 
@@ -183,7 +212,7 @@ The system searches across these tiers:
 |-----|---------|---------|
 | OpenAI | GPT-4o for analysis | [platform.openai.com](https://platform.openai.com) |
 | Tavily | Web search & extraction | [tavily.com](https://tavily.com) |
-| Google Sheets (optional) | Cloud storage | [Google Cloud Console](https://console.cloud.google.com) |
+| Google Sheets | Cloud storage | [Google Cloud Console](https://console.cloud.google.com) |
 
 ## 🤝 Contributing
 
