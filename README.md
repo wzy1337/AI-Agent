@@ -14,7 +14,40 @@ Does the following:
 ## 🏗️ Architecture
 
 ```
-
+┌─────────────────┐
+│   config.py     │  ← Define horizon scanning queries & settings
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐     ┌─────────────────┐
+│ stage1_         │────▶│   tools.py      │  ← Tavily Search API
+│ knowledge.py    │     │                 │    Wikipedia
+└────────┬────────┘     └─────────────────┘
+         │
+         ▼
+┌─────────────────┐     ┌─────────────────┐
+│   main.py       │────▶│   models.py     │  ← Pydantic schemas
+│   (LLM Agent)   │     │   (Event,       │    for structured output
+│                 │     │    Response)    │
+└────────┬────────┘     └─────────────────┘
+         │
+         │              ┌─────────────────┐
+         │              │   utils/        │
+         ├─────────────▶│   date_utils    │  ← Date filtering
+         │              │   file_utils    │  ← Deduplication
+         │              │   pdf_export    │  ← PDF generation
+         │              └─────────────────┘
+         ▼
+┌─────────────────┐     ┌─────────────────┐
+│   Output        │────▶│ cloud_storage   │  ← Google Sheets
+│   JSON + PDF    │     │   .py           │    (Streamlit Cloud)
+└────────┬────────┘     └─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│   app.py        │  ← Streamlit dashboard
+│   (Dashboard)   │    View reports & trigger scans
+└─────────────────┘
 ```
 
 ## 🚀 Quick Start
