@@ -92,8 +92,8 @@ pip install -r requirements.txt
 Create a `sample.env` file in the project root and add your keys:
 
 ```env
-OPENAI_API_KEY=sk-...
-TAVILY_API_KEY=tvly-...
+OPENAI_API_KEY="sk-..."
+TAVILY_API_KEY="tvly-..."
 ```
 
 ### 3. Run Locally
