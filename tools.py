@@ -54,9 +54,9 @@ def tavily_tool(query: str) -> str:
     Returns structured results with full URLs, publication dates, and relevance scores.
     """
     try:
-        # Define dates
+        # Define dates dynamically
         end_date = datetime.now()
-        start_date = datetime(2024, 1, 1)
+        start_date = datetime(end_date.year - 1, 1, 1)  # Previous year Jan 1
         
         if not tavily_api_key:
             return "❌ Tavily API key not configured. Please add TAVILY_API_KEY to secrets."
@@ -109,23 +109,28 @@ def tavily_tool(query: str) -> str:
 
 def extract_year_from_url(url: str) -> Optional[int]:
     """Helper: Extract publication year from URL patterns (FREE)."""
+    # Dynamic year range: previous year to next year
+    current_year = datetime.now().year
+    min_year = current_year - 1  # Previous year
+    max_year = current_year + 1  # Allow slight future dates
+    
     # Pattern 1: /YYYY/ in path
     year_match = re.search(r'/(\d{4})/', url)
     if year_match:
         year = int(year_match.group(1))
-        if 2020 <= year <= 2030: return year
+        if min_year <= year <= max_year: return year
     
     # Pattern 2: YYYY-MM-DD anywhere
     date_match = re.search(r'(\d{4})-\d{2}-\d{2}', url)
     if date_match:
         year = int(date_match.group(1))
-        if 2020 <= year <= 2030: return year
+        if min_year <= year <= max_year: return year
     
     # Pattern 3: /YYYYMMDD/ format
     compact_date = re.search(r'/(\d{4})\d{4}/', url)
     if compact_date:
         year = int(compact_date.group(1))
-        if 2020 <= year <= 2030: return year
+        if min_year <= year <= max_year: return year
     
     return None
 
@@ -140,10 +145,11 @@ def tavily_extract_tool(url: str) -> str:
         # TIER 1: Try free URL-based date extraction first
         url_year = extract_year_from_url(url)
         tier1_passed = False
+        min_year = datetime.now().year - 1  # Dynamic: previous year
         
         if url_year:
-            if url_year < 2024:
-                return f"❌ ARTICLE REJECTED - URL indicates year {url_year} (before 2024). URL: {url}"
+            if url_year < min_year:
+                return f"❌ ARTICLE REJECTED - URL indicates year {url_year} (before {min_year}). URL: {url}"
             else:
                 tier1_passed = True
         
@@ -166,9 +172,10 @@ def tavily_extract_tool(url: str) -> str:
         if published_date:
             try:
                 article_date = datetime.strptime(published_date, "%Y-%m-%d")
-                cutoff_date = datetime(2024, 1, 1)
+                min_year = datetime.now().year - 1  # Dynamic: previous year
+                cutoff_date = datetime(min_year, 1, 1)
                 if article_date < cutoff_date:
-                    return f"❌ ARTICLE REJECTED - Published {published_date} (before 2024). URL: {url}"
+                    return f"❌ ARTICLE REJECTED - Published {published_date} (before {min_year}). URL: {url}"
             except ValueError:
                 pass
         
