@@ -219,14 +219,12 @@ The system searches across International, Regional and Local covering think piec
 ![Dashboard](images/Dashboard.png)
 
 ## 📖 How to Use
-
+![New_Research](images/New_research.png)
 1. Click **"Start Research Job"** to run a new scan
 2. Wait ~15-20 minutes for research to complete
 3. Once done, the new report will be displayed
 4. Repeated events from previous scans are highlighted
-
 ## 🤝 Contributing
-
 1. Fork the repo
 2. Create a feature branch
 3. Submit a pull request
