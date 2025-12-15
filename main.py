@@ -895,11 +895,18 @@ if __name__ == '__main__':
         # Update the summary with accurate counts
         old_summary = structured_response.summary
         # Replace any mention of event counts with accurate numbers
+        # Pattern 1: "Identified X emerging issues" 
+        # Pattern 2: "X emerging issues identified"
         import re
+        summary_updated = re.sub(
+            r'[Ii]dentified\s+(\d+)\s+(emerging\s+)?issues?',
+            f'Identified {total_issues} emerging issues',
+            old_summary
+        )
         summary_updated = re.sub(
             r'(\d+)\s+(emerging\s+)?issues?\s+(have\s+been\s+)?identified',
             f'{total_issues} emerging issues have been identified',
-            old_summary,
+            summary_updated,
             flags=re.IGNORECASE
         )
         
