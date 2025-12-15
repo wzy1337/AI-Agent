@@ -1,5 +1,4 @@
-from langchain_community.tools import WikipediaQueryRun, DuckDuckGoSearchRun
-from langchain_community.utilities import WikipediaAPIWrapper
+from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.tools import tool
 from langchain_core.pydantic_v1 import BaseModel, Field
 from datetime import datetime
@@ -41,17 +40,6 @@ def save_tool(data: str, filename: str = "research_output.txt"):
         return f"Data successfully saved to {filename}"
     except Exception as e:
         return f"Error saving file: {str(e)}"
-
-# -----------------------------
-# Wikipedia Tool
-# -----------------------------
-api_wrapper = WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=100)
-wiki_run = WikipediaQueryRun(api_wrapper=api_wrapper)
-
-@tool("wiki_search", args_schema=SingleStringInput)
-def wiki_tool(query: str):
-    """Search Wikipedia for general knowledge."""
-    return wiki_run.run(query)
 
 # -----------------------------
 # Tavily AI Search (PRIMARY SEARCH TOOL)
