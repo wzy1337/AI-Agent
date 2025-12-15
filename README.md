@@ -89,13 +89,8 @@ pip install -r requirements.txt
 
 ### 2. Configure API Keys
 
-Copy the sample environment file and add your keys:
+Create a `sample.env` file in the project root and add your keys:
 
-```bash
-cp sample.env .env
-```
-
-Edit `.env`:
 ```env
 OPENAI_API_KEY=sk-...
 TAVILY_API_KEY=tvly-...
