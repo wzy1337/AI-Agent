@@ -1,8 +1,10 @@
-An GenAI-powered horizon scanning system for monitoring policy issues to automatically extract relevant events from online source. 
+# 🔭 Horizon Scanning AI Agent
+
+A GenAI-powered horizon scanning system for monitoring policy issues to automatically extract relevant events from online sources.
 
 ## What It Does
 
-This system performs **automated horizon scanning** to identify emerging issues, weak signals, and global trends that could impact retirement systems. 
+This system performs **automated horizon scanning** to identify emerging issues, weak signals, and global trends that could impact CPF and/or its members thereby assisting policymakers in decision making
 Does the following:
 - **Searches** across many curated query categories (global crises, tech disruption, weak signals, Singapore-specific)
 - **Analyzes** findings using GPT-4o to extract structured insights
@@ -127,16 +129,6 @@ Go to your app → **Settings** → **Secrets** and add:
 # Required API Keys
 OPENAI_API_KEY = "sk-..."
 TAVILY_API_KEY = "tvly-..."
-
-# Google Sheets Integration
-# 1. Go to Google Cloud Console → Create new project
-# 2. Enable Google Sheets API & Google Drive API
-# 3. Create Service Account- API & Services Credentials -> Create Credntials-> Service Account
-# 4. Create API Key: Click on service account-> Under 'key' section -> Add key-> Create new key->Json
-# 5. Download JSON key file
-# 6. Share your Google Sheet with the service account email
-# 7. Add relevant details onto streamlit secrets below
-
 # Sample Json key file
 [gcp_service_account]
 type = "service_account"
@@ -150,10 +142,21 @@ token_uri = "https://oauth2.googleapis.com/token"
 
 [google_sheets]
 spreadsheet_id = "your-spreadsheet-id-from-url"
+
+# Google Sheets Integration
+# 1. Go to Google Cloud Console → Create new project
+# 2. Enable Google Sheets API & Google Drive API
+# 3. Create Service Account- API & Services Credentials -> Create Credntials-> Service Account
+# 4. Create API Key: Click on service account-> Under 'key' section -> Add key-> Create new key->Json
+# 5. Download JSON key file
+# 6. Share your Google Sheet with the service account email
+# 7. Add relevant details onto streamlit secrets below
+
+
 ```
 
 > 💡 **Note:** Get the `spreadsheet_id` from your Google Sheet URL:  
-> `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`
+> URL:`https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`
 
 ## 📁 Project Structure
 
@@ -181,13 +184,12 @@ Edit `config.py` to customize:
 | Setting | Description |
 |---------|-------------|
 | `LLM_MODEL` | OpenAI model (default: `gpt-4o`) |
-| `MIN_YEAR_FILTER` | Only include sources from this year onwards |
 | `FUZZY_MATCH_THRESHOLD` | Similarity threshold for deduplication (0.7 = 70%) |
 | `KNOWLEDGE_QUERIES_TIER` | List of horizon scanning queries |
 
 ## 🔍 Query Categories
 
-The system searches across these tiers:
+The system searches across International, Regional and Local covering think pieces, new articles:
 
 1. **Global Crises & Warnings** - IMF/OECD alerts, worldwide pension issues
 2. **Reform Experiments** - Nordic, Netherlands, UK, Australia innovations
@@ -212,8 +214,16 @@ The system searches across these tiers:
 | Tavily | Web search & extraction | [tavily.com](https://tavily.com) |
 | Google Sheets | Cloud storage | [Google Cloud Console](https://console.cloud.google.com) |
 
-## Dashboard Preview
+## 📸 Dashboard Preview
+
 ![Dashboard](images/Dashboard.png)
+
+## 📖 How to Use
+
+1. Click **"Start Research Job"** to run a new scan
+2. Wait ~15-20 minutes for research to complete
+3. Once done, the new report will be displayed
+4. Repeated events from previous scans are highlighted
 
 ## 🤝 Contributing
 
