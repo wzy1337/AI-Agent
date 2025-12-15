@@ -225,9 +225,6 @@ The system searches across International, Regional and Local covering think piec
 3. Once done, the new report will be displayed
 4. Repeated events from previous scans are highlighted
 
-## After starting Research Job
-Run time can be viewed
-![Start new research](images/Start new research.png)
 ## 🤝 Contributing
 
 1. Fork the repo
