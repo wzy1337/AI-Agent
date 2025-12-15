@@ -3,6 +3,7 @@ venv/
 sample.env
 __pycache__/
 *.pyc
+.streamlit/secrets.toml
 *.txt
 *json
 *.md
