@@ -14,7 +14,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 # FALLBACK: For OpenAI, replace with: from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
-from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
+from langchain.agents import create_tool_calling_agent, AgentExecutor
 from tools import search_tool, save_tool, tavily_tool, tavily_extract_tool
 from datetime import datetime
 import json as _json
