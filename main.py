@@ -256,7 +256,11 @@ print(f"📊 Date Detection Summary:")
 print(f"   ✅ URLs with metadata dates (from Tavily): {urls_with_metadata}")
 print(f"   ✅ URLs with dates in URL pattern: {urls_with_url_dates}")
 print(f"   ⚠️ URLs without detectable dates: {urls_without_dates}")
-print(f"   📈 Total with dates: {total_with_dates}/{len(unique_urls)} ({100*total_with_dates/len(unique_urls):.1f}%)")
+
+if len(unique_urls) > 0:
+    print(f"   📈 Total with dates: {total_with_dates}/{len(unique_urls)} ({100*total_with_dates/len(unique_urls):.1f}%)")
+else:
+    print(f"   📈 Total with dates: 0/0 (No URLs collected)")
 
 print(f"\n📊 Year Distribution:")
 for year in sorted(year_distribution.keys(), reverse=True):
