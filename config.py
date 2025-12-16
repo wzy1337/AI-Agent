@@ -17,10 +17,23 @@ CURRENT_DATETIME_STR = NOW.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timez
 # ============================================
 # LLM Configuration
 # ============================================
-LLM_MODEL = "gemini-1.5-flash"  # Using Gemini (OpenAI quota exhausted)
+# CURRENT: Gemini 2.5 Flash (free tier)
+LLM_MODEL = "gemini-2.5-flash"
 LLM_TEMPERATURE = 0  # Deterministic output
-LLM_MAX_TOKENS = 4000  # Maximum output tokens for Gemini
+LLM_MAX_TOKENS = 3000  # Maximum output tokens for Gemini
+
+# FALLBACK: To use OpenAI instead, uncomment below and comment out Gemini above:
+# Ensure you have credits at https://platform.openai.com/account/billing
+# LLM_MODEL = "gpt-4o-mini"
+# LLM_MAX_TOKENS = 16384
+
 MAX_RETRIES = 3  # Retry attempts for parsing failures
+
+# ============================================
+# Rate Limiting (API Protection)
+# ============================================
+API_CALLS_PER_MINUTE = 10  # Max LLM calls per minute (conservative limit)
+API_DELAY_SECONDS = 6  # Delay between API calls (60s / 10 calls = 6s)
 
 # ============================================
 # Research Configuration
@@ -43,8 +56,6 @@ KNOWLEDGE_QUERIES_TIER = [
     # TIER 1: GLOBAL MACRO TRENDS & SYSTEMIC RISKS
     # ============================================
     {"query": f"Unexpected developments in global pension systems retirement funds {YEAR_RANGE}", "label": "Global Macro: Unexpected Developments", "sentiment": "horizon"},
-    {"query": f"Emerging concerns from IMF World Bank OECD BIS about pension sustainability retirement adequacy {YEAR_RANGE}", "label": "Global Macro: International Warnings", "sentiment": "horizon"},
-    
 ]
 
 # Combine all knowledge queries
