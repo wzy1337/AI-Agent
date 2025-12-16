@@ -9,7 +9,7 @@ if sys.platform == 'win32':
 
 from dotenv import load_dotenv
 from typing import List, Optional, Dict
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
@@ -61,10 +61,10 @@ current_datetime_str = CURRENT_DATETIME_STR
 # -----------------------------
 # LLM Setup
 # -----------------------------
-llm = ChatOpenAI(
+llm = ChatGoogleGenerativeAI(
     model=LLM_MODEL,
     temperature=LLM_TEMPERATURE,
-    max_tokens=LLM_MAX_TOKENS,
+    max_output_tokens=LLM_MAX_TOKENS,
 )
 
 parser = PydanticOutputParser(pydantic_object=ResearchResponse)
@@ -246,7 +246,10 @@ print(f"📊 Date Detection Summary:")
 print(f"   ✅ URLs with metadata dates (from Tavily): {urls_with_metadata}")
 print(f"   ✅ URLs with dates in URL pattern: {urls_with_url_dates}")
 print(f"   ⚠️ URLs without detectable dates: {urls_without_dates}")
-print(f"   📈 Total with dates: {total_with_dates}/{len(unique_urls)} ({100*total_with_dates/len(unique_urls):.1f}%)")
+if len(unique_urls) > 0:
+    print(f"   📈 Total with dates: {total_with_dates}/{len(unique_urls)} ({100*total_with_dates/len(unique_urls):.1f}%)")
+else:
+    print(f"   📈 Total with dates: 0/0 (No URLs collected)")
 
 print(f"\n📊 Year Distribution:")
 for year in sorted(year_distribution.keys(), reverse=True):
