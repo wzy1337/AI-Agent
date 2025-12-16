@@ -4,11 +4,12 @@ Stage 1: Knowledge building through research queries.
 """
 
 import re
+import time
 from collections import Counter
 from typing import List, Dict, Tuple
-from langchain.agents import AgentExecutor
+from langchain_classic.agents import AgentExecutor
 
-from config import KNOWLEDGE_QUERIES, SENTIMENT_ICONS, MIN_YEAR_FILTER
+from config import KNOWLEDGE_QUERIES, SENTIMENT_ICONS, MIN_YEAR_FILTER, API_DELAY_SECONDS
 from utils.date_utils import extract_dates_from_search_output, filter_urls_by_date
 
 
@@ -32,6 +33,11 @@ def execute_knowledge_queries(agent_executor: AgentExecutor) -> Tuple[str, List[
         sentiment_icon = SENTIMENT_ICONS.get(kq.get('sentiment', 'neutral'), "ℹ️")
         print(f"📚 [{idx}/{len(KNOWLEDGE_QUERIES)}] {sentiment_icon} {kq['label']}")
         print(f"    Query: {kq['query']}")
+        
+        # Rate limiting: Add delay between API calls
+        if idx > 1:  # Skip delay for first query
+            print(f"⏳ Rate limit: waiting {API_DELAY_SECONDS}s before next API call...")
+            time.sleep(API_DELAY_SECONDS)
         
         try:
             knowledge_response = agent_executor.invoke({"query": kq['query']})
