@@ -17,7 +17,7 @@ CURRENT_DATETIME_STR = NOW.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timez
 # ============================================
 # LLM Configuration
 # ============================================
-# CURRENT: Gemini 2.5 Flash (free tier)
+# CURRENT: Gemini 2.5 Flash Lite (free tier, faster)
 LLM_MODEL = "gemini-2.5-flash-lite"
 LLM_TEMPERATURE = 0  # Deterministic output
 LLM_MAX_TOKENS = 3000  # Maximum output tokens for Gemini

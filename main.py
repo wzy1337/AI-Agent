@@ -533,9 +533,30 @@ while retry_count < MAX_RETRIES and structured_response is None:
             print("   Using raw output as JSON")
             json_text = output_text
 
-        # Handle case where LLM wraps response in {"ResearchResponse": {...}}
+        # Repair unterminated strings in JSON
+        # Common Gemini issue: unclosed quotes
+        import re
         import json
-        parsed_json = json.loads(json_text)
+        
+        # Fix common JSON issues from Gemini
+        json_text = json_text.strip()
+        # Fix unterminated strings (quotes not closed before end of line/object)
+        json_text = re.sub(r'"([^"]*)(\n|,|})', r'"\1"\2', json_text)
+        
+        try:
+            parsed_json = json.loads(json_text)
+        except json.JSONDecodeError as e:
+            print(f"   ⚠️ JSON decode error: {e}")
+            print(f"   Attempting to fix malformed JSON...")
+            # Remove trailing commas
+            json_text = re.sub(r',\s*}', '}', json_text)
+            json_text = re.sub(r',\s*]', ']', json_text)
+            # Try parsing again
+            try:
+                parsed_json = json.loads(json_text)
+            except json.JSONDecodeError as e2:
+                print(f"   ❌ Still invalid JSON: {e2}")
+                raise
 
         print(f"   ✅ JSON parsed successfully")
         print(f"   Top-level keys: {list(parsed_json.keys())}")
