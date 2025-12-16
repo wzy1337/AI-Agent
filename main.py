@@ -9,9 +9,13 @@ if sys.platform == 'win32':
 
 from dotenv import load_dotenv
 from typing import List, Optional, Dict
+<<<<<<< HEAD
 # CURRENT: Gemini implementation
 from langchain_google_genai import ChatGoogleGenerativeAI
 # FALLBACK: For OpenAI, replace with: from langchain_openai import ChatOpenAI
+=======
+from langchain_openai import ChatOpenAI
+>>>>>>> parent of 7b55bc0 (change to gemini api)
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
@@ -63,11 +67,15 @@ current_datetime_str = CURRENT_DATETIME_STR
 # -----------------------------
 # LLM Setup
 # -----------------------------
+<<<<<<< HEAD
 # CURRENT: Gemini
 llm = ChatGoogleGenerativeAI(
+=======
+llm = ChatOpenAI(
+>>>>>>> parent of 7b55bc0 (change to gemini api)
     model=LLM_MODEL,
     temperature=LLM_TEMPERATURE,
-    max_output_tokens=LLM_MAX_TOKENS,
+    max_tokens=LLM_MAX_TOKENS,
 )
 
 # FALLBACK: For OpenAI, replace above with:
@@ -256,10 +264,7 @@ print(f"📊 Date Detection Summary:")
 print(f"   ✅ URLs with metadata dates (from Tavily): {urls_with_metadata}")
 print(f"   ✅ URLs with dates in URL pattern: {urls_with_url_dates}")
 print(f"   ⚠️ URLs without detectable dates: {urls_without_dates}")
-if len(unique_urls) > 0:
-    print(f"   📈 Total with dates: {total_with_dates}/{len(unique_urls)} ({100*total_with_dates/len(unique_urls):.1f}%)")
-else:
-    print(f"   📈 Total with dates: 0/0 (No URLs collected)")
+print(f"   📈 Total with dates: {total_with_dates}/{len(unique_urls)} ({100*total_with_dates/len(unique_urls):.1f}%)")
 
 print(f"\n📊 Year Distribution:")
 for year in sorted(year_distribution.keys(), reverse=True):
@@ -549,8 +554,10 @@ while retry_count < MAX_RETRIES and structured_response is None:
             print(f"   ⚠️ JSON decode error: {e}")
             print(f"   Attempting to fix malformed JSON...")
             # Remove trailing commas
-            json_text = re.sub(r',\s*}', '}', json_text)
-            json_text = re.sub(r',\s*]', ']', json_text)
+            json_text = re.sub(r'[\x00-\x1F\x7F]', '', json_text)
+            json_text = re.sub(r',\s*([\]}])', r'\1', json_text)
+            json_text = re.sub(r'(?<!\\)\\n', r'\\\\n', json_text)
+            json_text = re.sub(r'\\(?![\"\\/bfnrtu])', r'\\\\', json_text)
             # Try parsing again
             try:
                 parsed_json = json.loads(json_text)
