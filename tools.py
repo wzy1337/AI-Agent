@@ -1,6 +1,9 @@
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.tools import tool
-from langchain_core.pydantic_v1 import BaseModel, Field
+# CURRENT: Native Pydantic v2
+from pydantic import BaseModel, Field
+# FALLBACK: For older LangChain (0.2.16), use:
+# from langchain_core.pydantic_v1 import BaseModel, Field
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from typing import Optional

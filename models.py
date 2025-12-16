@@ -3,7 +3,10 @@
 Pydantic data models for research responses.
 """
 
+# CURRENT: Native Pydantic v2
 from pydantic import BaseModel, Field
+# FALLBACK: For older LangChain (0.2.16), use:
+# from langchain_core.pydantic_v1 import BaseModel, Field
 from typing import List, Optional
 
 
