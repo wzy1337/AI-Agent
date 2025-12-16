@@ -9,13 +9,9 @@ if sys.platform == 'win32':
 
 from dotenv import load_dotenv
 from typing import List, Optional, Dict
-<<<<<<< HEAD
 # CURRENT: Gemini implementation
 from langchain_google_genai import ChatGoogleGenerativeAI
 # FALLBACK: For OpenAI, replace with: from langchain_openai import ChatOpenAI
-=======
-from langchain_openai import ChatOpenAI
->>>>>>> parent of 7b55bc0 (change to gemini api)
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain.agents import create_tool_calling_agent, AgentExecutor
@@ -67,12 +63,8 @@ current_datetime_str = CURRENT_DATETIME_STR
 # -----------------------------
 # LLM Setup
 # -----------------------------
-<<<<<<< HEAD
 # CURRENT: Gemini
 llm = ChatGoogleGenerativeAI(
-=======
-llm = ChatOpenAI(
->>>>>>> parent of 7b55bc0 (change to gemini api)
     model=LLM_MODEL,
     temperature=LLM_TEMPERATURE,
     max_tokens=LLM_MAX_TOKENS,
