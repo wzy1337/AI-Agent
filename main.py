@@ -544,7 +544,7 @@ while retry_count < MAX_RETRIES and structured_response is None:
         json_text = re.sub(r'"([^"]*)(\n|,|})', r'"\1"\2', json_text)
         
         try:
-            parsed_json = json.loads(json_text)
+            parsed_json = json.loads(json_text,strict=False)
         except json.JSONDecodeError as e:
             print(f"   ⚠️ JSON decode error: {e}")
             print(f"   Attempting to fix malformed JSON...")
