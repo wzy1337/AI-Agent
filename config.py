@@ -5,11 +5,13 @@ Configuration settings for the CPF Research Intelligence system.
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import pytz  # Import pytz library
 
 # ============================================
 # Time Configuration
 # ============================================
-NOW = datetime.now()
+sg_timezone = pytz.timezone('Asia/Singapore')
+NOW = datetime.now(sg_timezone)
 ONE_YEAR_AGO_DATETIME = NOW - relativedelta(years=1)
 ONE_YEAR_AGO_INT = ONE_YEAR_AGO_DATETIME.year
 CURRENT_DATETIME_STR = NOW.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timezone is UTC+8.")
