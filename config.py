@@ -18,22 +18,17 @@ CURRENT_DATETIME_STR = NOW.strftime("%Y-%m-%d, %A. Time: %H:%M:%S. Current timez
 # LLM Configuration
 # ============================================
 # CURRENT: Gemini 2.5 Flash Lite (free tier, faster)
-LLM_MODEL = "gemini-2.5-flash-lite"
-LLM_TEMPERATURE = 0  # Deterministic output
-LLM_MAX_TOKENS = 3000  # Maximum output tokens for Gemini
+# LLM_MODEL = "gemini-2.5-flash-lite"
+# LLM_TEMPERATURE = 0  # Deterministic output
+# LLM_MAX_TOKENS = 3000  # Maximum output tokens for Gemini
 
 # FALLBACK: To use OpenAI instead, uncomment below and comment out Gemini above:
 # Ensure you have credits at https://platform.openai.com/account/billing
-# LLM_MODEL = "gpt-4o-mini"
-# LLM_MAX_TOKENS = 16384
+LLM_MODEL = "gpt-4o-mini"
+LLM_TEMPERATURE = 0
+LLM_MAX_TOKENS = 16384
 
 MAX_RETRIES = 3  # Retry attempts for parsing failures
-
-# ============================================
-# Rate Limiting (API Protection)
-# ============================================
-API_CALLS_PER_MINUTE = 10  # Max LLM calls per minute (conservative limit)
-API_DELAY_SECONDS = 6  # Delay between API calls (60s / 10 calls = 6s)
 
 # ============================================
 # Research Configuration

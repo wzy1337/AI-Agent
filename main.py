@@ -9,12 +9,10 @@ if sys.platform == 'win32':
 
 from dotenv import load_dotenv
 from typing import List, Optional, Dict
-# CURRENT: Gemini implementation
-from langchain_google_genai import ChatGoogleGenerativeAI
-# FALLBACK: For OpenAI, replace with: from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain.agents import create_openai_tools_agent, AgentExecutor
 from tools import search_tool, save_tool, tavily_tool, tavily_extract_tool
 from datetime import datetime
 import json as _json
@@ -64,18 +62,11 @@ current_datetime_str = CURRENT_DATETIME_STR
 # LLM Setup
 # -----------------------------
 # CURRENT: Gemini
-llm = ChatGoogleGenerativeAI(
+llm = ChatOpenAI(
     model=LLM_MODEL,
     temperature=LLM_TEMPERATURE,
     max_tokens=LLM_MAX_TOKENS,
 )
-
-# FALLBACK: For OpenAI, replace above with:
-# llm = ChatOpenAI(
-#     model=LLM_MODEL,
-#     temperature=LLM_TEMPERATURE,
-#     max_tokens=LLM_MAX_TOKENS,
-# )
 
 parser = PydanticOutputParser(pydantic_object=ResearchResponse)
 
@@ -134,12 +125,12 @@ if search_tool is not None:
 # -----------------------------
 # Agent Setup
 # -----------------------------
-agent = create_tool_calling_agent(
+# Use the older function compatible with your installed version
+agent = create_openai_tools_agent(
     llm=llm,
-    prompt=stage1_prompt,  # Use the new, simple prompt
+    prompt=stage1_prompt,
     tools=tools
 )
-
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
 # -----------------------------
@@ -534,32 +525,9 @@ while retry_count < MAX_RETRIES and structured_response is None:
             print("   Using raw output as JSON")
             json_text = output_text
 
-        # Repair unterminated strings in JSON
-        # Common Gemini issue: unclosed quotes
-        import re
+        # Handle case where LLM wraps response in {"ResearchResponse": {...}}
         import json
-        
-        # Fix common JSON issues from Gemini
-        json_text = json_text.strip()
-        # Fix unterminated strings (quotes not closed before end of line/object)
-        json_text = re.sub(r'"([^"]*)(\n|,|})', r'"\1"\2', json_text)
-        
-        try:
-            parsed_json = json.loads(json_text,strict=False)
-        except json.JSONDecodeError as e:
-            print(f"   ⚠️ JSON decode error: {e}")
-            print(f"   Attempting to fix malformed JSON...")
-            # Remove trailing commas
-            json_text = re.sub(r'[\x00-\x1F\x7F]', '', json_text)
-            json_text = re.sub(r',\s*([\]}])', r'\1', json_text)
-            json_text = re.sub(r'(?<!\\)\\n', r'\\\\n', json_text)
-            json_text = re.sub(r'\\(?![\"\\/bfnrtu])', r'\\\\', json_text)
-            # Try parsing again
-            try:
-                parsed_json = json.loads(json_text)
-            except json.JSONDecodeError as e2:
-                print(f"   ❌ Still invalid JSON: {e2}")
-                raise
+        parsed_json = json.loads(json_text)
 
         print(f"   ✅ JSON parsed successfully")
         print(f"   Top-level keys: {list(parsed_json.keys())}")

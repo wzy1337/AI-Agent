@@ -9,7 +9,7 @@ from collections import Counter
 from typing import List, Dict, Tuple
 from langchain.agents import AgentExecutor
 
-from config import KNOWLEDGE_QUERIES, SENTIMENT_ICONS, MIN_YEAR_FILTER, API_DELAY_SECONDS
+from config import KNOWLEDGE_QUERIES, SENTIMENT_ICONS, MIN_YEAR_FILTER
 from utils.date_utils import extract_dates_from_search_output, filter_urls_by_date
 
 
