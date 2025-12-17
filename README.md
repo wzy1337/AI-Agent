@@ -81,11 +81,13 @@ Does the following:
 
 ## 🚀 Quick Start
 
-### 1. Clone & Install
+### 1. Clone , Create and Enter Virtual Environment,  Install Dependencies  
 
 ```bash
 git clone https://github.com/wzy1337/AI-Agent.git
 cd AI-Agent
+python -m venv venv
+.\venv\Scripts\Activate
 pip install -r requirements.txt
 ```
 
